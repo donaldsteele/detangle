@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Detangle.App"
+        x:Class="Detangle.App.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Detangle"
+        Width="1100"
+        Height="720"
+        MinWidth="640"
+        MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+
+  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
+    <TextBlock Text="{Binding Title}" FontSize="48" FontWeight="Bold" HorizontalAlignment="Center" />
+    <TextBlock Text="{Binding Tagline}" FontSize="16" Opacity="0.7" HorizontalAlignment="Center" />
+    <TextBlock Text="{Binding Version, StringFormat='version {0}'}" FontSize="12" Opacity="0.45" HorizontalAlignment="Center" />
+  </StackPanel>
+
+</Window>

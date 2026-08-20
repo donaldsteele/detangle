@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Detangle.App/Detangle.App.csproj" />
+    <Project Path="src/Detangle.Core/Detangle.Core.csproj" />
+    <Project Path="src/Detangle.Desktop/Detangle.Desktop.csproj" />
+    <Project Path="src/Detangle.Rendering/Detangle.Rendering.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Detangle.Core.Tests/Detangle.Core.Tests.csproj" />
+  </Folder>
+</Solution>

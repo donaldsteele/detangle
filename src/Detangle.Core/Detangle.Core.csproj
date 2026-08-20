@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Hard rule from plan.md section 4: Detangle.Core must never reference Avalonia.
+    It has to stay headless-testable so the link resolver can be golden-tested
+    without a UI, and so a `detangle lint` CLI stays possible later.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Detangle.Core</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,39 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+*.user
+*.suo
+*.userprefs
+
+# Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/
+!.vscode/extensions.json
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# NuGet
+*.nupkg
+packages/
+!packages/build/
+
+# Detangle sidecar (never commit a vault cache)
+.detangle/
+
+# Website build output
+site/_out/
+site/**/*.wasm.br
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
