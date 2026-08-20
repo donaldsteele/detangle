@@ -3,6 +3,8 @@
         xmlns:app="clr-namespace:Detangle.App"
         xmlns:vault="clr-namespace:Detangle.Core.Vault;assembly=Detangle.Core"
         xmlns:graph="clr-namespace:Detangle.Core.Graph;assembly=Detangle.Core"
+        xmlns:search="clr-namespace:Detangle.Core.Search;assembly=Detangle.Core"
+        xmlns:diagnostics="clr-namespace:Detangle.Core.Diagnostics;assembly=Detangle.Core"
         xmlns:model="clr-namespace:Detangle.Rendering.Model;assembly=Detangle.Rendering"
         x:Class="Detangle.App.MainWindow"
         x:DataType="app:ShellViewModel"
@@ -58,7 +60,7 @@
 
       <Grid ColumnDefinitions="270,Auto,*,Auto,300">
 
-        <!-- Left rail: files, tags. Search and Link Doctor arrive in phase 5. -->
+        <!-- Left rail: files, search, Link Doctor, tags. -->
         <TabControl Grid.Column="0" Name="LeftRail">
           <TabItem Header="Files">
             <DockPanel>
@@ -71,6 +73,50 @@
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
               </TreeView>
+            </DockPanel>
+          </TabItem>
+
+          <TabItem Header="Search">
+            <DockPanel>
+              <TextBox DockPanel.Dock="Top" Name="SearchBox" Text="{Binding SearchQuery}"
+                       PlaceholderText="text, type:concept, tag:llm, path:wiki/, updated&gt;2026-06-01"
+                       Margin="6" />
+              <TextBlock DockPanel.Dock="Top" Text="{Binding SearchSummary}" Classes="secondary"
+                         Margin="8,0,8,6" />
+              <ListBox Name="SearchList" ItemsSource="{Binding SearchResults}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="search:SearchHit">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding Document.DisplayName}" FontSize="12" />
+                      <TextBlock Text="{Binding Heading}" Classes="secondary" />
+                      <TextBlock Text="{Binding Snippet}" Classes="secondary" TextWrapping="Wrap" MaxLines="2" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </DockPanel>
+          </TabItem>
+
+          <TabItem Header="Doctor">
+            <DockPanel>
+              <Button DockPanel.Dock="Top" Name="FixAllButton" Content="Fix all safe"
+                      Margin="6" HorizontalAlignment="Stretch"
+                      ToolTip.Tip="Rewrites links that resolved by rules 4-8 to their canonical target" />
+              <ListBox Name="FindingList" ItemsSource="{Binding Findings}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="diagnostics:Finding">
+                    <StackPanel Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Severity}" Classes="secondary" />
+                        <TextBlock Text="{Binding Kind}" FontSize="12" />
+                      </StackPanel>
+                      <TextBlock Text="{Binding Document.RelativePath}" Classes="secondary"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Message}" FontSize="11" TextWrapping="Wrap" MaxLines="3" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
             </DockPanel>
           </TabItem>
 

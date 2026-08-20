@@ -43,6 +43,9 @@ public partial class MainWindow : Window
         BacklinkList.SelectionChanged += OnBacklinkSelectionChanged;
         MentionList.SelectionChanged += OnMentionSelectionChanged;
         PaletteList.SelectionChanged += OnPaletteSelectionChanged;
+        SearchList.SelectionChanged += OnSearchSelectionChanged;
+        FindingList.SelectionChanged += OnFindingSelectionChanged;
+        FixAllButton.Click += OnFixAllClick;
 
         DataContextChanged += OnDataContextChanged;
         KeyDown += OnWindowKeyDown;
@@ -257,6 +260,41 @@ public partial class MainWindow : Window
         {
             PaletteList.SelectedItem = null;
             entry.Invoke();
+        }
+    }
+
+    private void OnSearchSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (SearchList.SelectedItem is Detangle.Core.Search.SearchHit hit)
+        {
+            // A hit knows the heading it was found under, so opening it lands on the
+            // section rather than at the top of a long page.
+            ViewModel?.Open(hit.Document);
+
+            if (hit.Heading is { Length: > 0 } heading)
+            {
+                ScrollToAnchor(Detangle.Core.Linking.HeadingSlugger.SlugCore(heading));
+            }
+        }
+    }
+
+    private void OnFindingSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (FindingList.SelectedItem is Detangle.Core.Diagnostics.Finding finding)
+        {
+            ViewModel?.Open(finding.Document);
+        }
+    }
+
+    private void OnFixAllClick(object? sender, RoutedEventArgs e)
+    {
+        int written = ViewModel?.FixAllSafe() ?? 0;
+
+        if (ViewModel is { } viewModel)
+        {
+            viewModel.Status = written == 0
+                ? "Nothing to fix: every link is already canonical."
+                : $"Rewrote links in {written} file{(written == 1 ? string.Empty : "s")}.";
         }
     }
 

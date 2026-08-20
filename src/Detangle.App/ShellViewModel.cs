@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Detangle.Core.Diagnostics;
 using Detangle.Core.Graph;
 using Detangle.Core.Linking;
+using Detangle.Core.Search;
 using Detangle.Core.Vault;
 using Detangle.Rendering;
 using Detangle.Rendering.Diagrams;
@@ -61,6 +63,8 @@ public sealed partial class ShellViewModel : ObservableObject
     private VaultSnapshot? _vault;
     private RenderModelBuilder? _builder;
     private LinkGraph? _graph;
+    private SearchIndex? _search;
+    private VaultWatcher? _watcher;
     private bool _navigating;
 
     [ObservableProperty]
@@ -86,6 +90,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
     [ObservableProperty]
     private string _navigationSourceName = string.Empty;
+
+    [ObservableProperty]
+    private string _searchQuery = string.Empty;
+
+    [ObservableProperty]
+    private string _searchSummary = string.Empty;
 
     /// <summary>Creates the shell.</summary>
     /// <param name="diagramRenderer">The diagram backend; defaults to Mermaider.</param>
@@ -117,6 +127,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Palette entries matching <see cref="PaletteQuery"/>.</summary>
     public ObservableCollection<PaletteEntry> PaletteResults { get; } = [];
+
+    /// <summary>Hits for <see cref="SearchQuery"/>.</summary>
+    public ObservableCollection<SearchHit> SearchResults { get; } = [];
+
+    /// <summary>Link Doctor findings over the whole vault.</summary>
+    public ObservableCollection<Finding> Findings { get; } = [];
 
     /// <summary>The vault, once one is open.</summary>
     public VaultSnapshot? Vault => _vault;
@@ -159,6 +175,16 @@ public sealed partial class ShellViewModel : ObservableObject
 
         _graph = LinkGraph.Build(_vault);
         VaultPath = _vault.RootPath;
+
+        _search?.Dispose();
+        _search = SearchIndex.Open(_vault.RootPath);
+        _search.Rebuild(_vault, ReadContent);
+
+        _watcher?.Dispose();
+        _watcher = new VaultWatcher(_vault);
+        _watcher.Changed += OnVaultChanged;
+
+        RefreshFindings();
 
         NavigationTreeBuilder.Result navigation = NavigationTreeBuilder.Build(_vault, ReadContent);
         NavigationSourceName = navigation.Source.ToString();
@@ -322,6 +348,169 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    /// <summary>Reindexes and re-examines after files changed outside the app.</summary>
+    private void OnVaultChanged(object? sender, IReadOnlyList<VaultChange> changes)
+    {
+        if (_vault is null || _search is null)
+        {
+            return;
+        }
+
+        // A rescan is what keeps the resolver honest: a renamed file changes what every
+        // link in the vault resolves to, so the indexes are rebuilt rather than patched.
+        VaultSnapshot rescanned;
+
+        try
+        {
+            rescanned = VaultScanner.Scan(_vault.RootPath);
+        }
+        catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        _vault = rescanned;
+        _graph = LinkGraph.Build(_vault);
+        _search.Rebuild(_vault, ReadContent);
+
+        foreach (VaultChange change in changes)
+        {
+            DocumentTab? tab = Tabs.FirstOrDefault(
+                t => string.Equals(t.Document.RelativePath, change.RelativePath, StringComparison.Ordinal));
+
+            if (tab is null)
+            {
+                continue;
+            }
+
+            VaultDocument? updated = _vault.Index.ByRelativePath(change.RelativePath).FirstOrDefault();
+
+            if (updated is not null && _builder is not null)
+            {
+                tab.Rendered = _builder.Build(updated);
+            }
+        }
+
+        RefreshFindings();
+        RunSearch();
+    }
+
+    /// <summary>
+    /// Rescans the vault now, rather than waiting for the watcher's next sweep. The
+    /// watcher calls this on its own schedule; callers use it when they know something
+    /// changed and want the answer immediately.
+    /// </summary>
+    public void Reconcile() => OnVaultChanged(this, []);
+
+    /// <summary>Re-examines the vault for Link Doctor findings.</summary>
+    public void RefreshFindings()
+    {
+        Findings.Clear();
+
+        if (_graph is null)
+        {
+            return;
+        }
+
+        foreach (Finding finding in LinkDoctor.Examine(_graph, ReadContent)
+            .OrderBy(f => f.Severity)
+            .ThenBy(f => f.Document.RelativePath, StringComparer.OrdinalIgnoreCase))
+        {
+            Findings.Add(finding);
+        }
+    }
+
+    /// <summary>
+    /// Applies every safe fix — the links that resolved through steps 4 to 8 and have
+    /// exactly one canonical form — and returns how many files were rewritten.
+    /// </summary>
+    public int FixAllSafe()
+    {
+        var byDocument = LinkDoctor.SafeToFix(Findings)
+            .GroupBy(f => f.Document.RelativePath, StringComparer.Ordinal);
+
+        int written = 0;
+
+        foreach (IGrouping<string, Finding> group in byDocument)
+        {
+            VaultDocument document = group.First().Document;
+            string? content = ReadContent(document);
+
+            if (content is null)
+            {
+                continue;
+            }
+
+            // Later lines first: rewriting from the bottom up keeps every remaining
+            // finding's line number valid.
+            foreach (Finding finding in group.OrderByDescending(f => f.Line))
+            {
+                content = LinkDoctor.ApplyRewrite(content, finding) ?? content;
+            }
+
+            if (WriteAtomically(document.AbsolutePath, content))
+            {
+                written++;
+            }
+        }
+
+        if (written > 0)
+        {
+            OnVaultChanged(this, []);
+        }
+
+        return written;
+    }
+
+    /// <summary>Runs the current search query.</summary>
+    public void RunSearch()
+    {
+        SearchResults.Clear();
+
+        if (_search is null || _vault is null || SearchQuery.Trim().Length == 0)
+        {
+            SearchSummary = string.Empty;
+            return;
+        }
+
+        foreach (SearchHit hit in _search.Search(Core.Search.SearchQuery.Parse(SearchQuery), _vault))
+        {
+            SearchResults.Add(hit);
+        }
+
+        SearchSummary = $"{SearchResults.Count} result{(SearchResults.Count == 1 ? string.Empty : "s")}";
+    }
+
+    /// <summary>
+    /// Writes a file by replacing it, so a crash mid-write cannot leave a vault holding
+    /// half a document.
+    /// </summary>
+    private static bool WriteAtomically(string path, string content)
+    {
+        string temporary = path + ".detangle-tmp";
+
+        try
+        {
+            File.WriteAllText(temporary, content);
+            File.Move(temporary, path, overwrite: true);
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+                // Nothing more to do; the original file is untouched either way.
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>Renders a document for a hover preview, without opening it.</summary>
     public RenderDocument? Preview(VaultDocument document) => _builder?.Build(document);
 
@@ -390,6 +579,8 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     partial void OnPaletteQueryChanged(string value) => RefreshPalette();
+
+    partial void OnSearchQueryChanged(string value) => RunSearch();
 
     /// <summary>
     /// Rebuilds the palette. Documents match on path and display name, and headings of
