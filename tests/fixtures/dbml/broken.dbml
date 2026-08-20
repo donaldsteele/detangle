@@ -1,0 +1,15 @@
+Table good_one {
+  id int [pk]
+  name varchar
+}
+
+Table missing_brace
+  id int [pk]
+}
+
+Ref: good_one.id
+
+Table after_the_error {
+  id int [pk]
+  label varchar
+}

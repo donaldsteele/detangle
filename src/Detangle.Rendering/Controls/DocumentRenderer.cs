@@ -4,6 +4,8 @@ using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Svg.Skia;
+using Detangle.Core.Dbml;
 using Detangle.Core.Linking;
 using Detangle.Core.Parsing;
 using Detangle.Rendering.Highlighting;
@@ -68,6 +70,7 @@ public sealed class DocumentRenderer
         ParagraphRenderBlock paragraph => Paragraph(paragraph),
         HeadingRenderBlock heading => Heading(heading),
         CodeRenderBlock code => Code(code),
+        DiagramRenderBlock diagram => Diagram(diagram),
         QuoteRenderBlock quote => Quote(quote),
         CalloutRenderBlock callout => Callout(callout),
         ListRenderBlock list => List(list),
@@ -177,6 +180,177 @@ public sealed class DocumentRenderer
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(12, 10),
+            Child = panel,
+        };
+    }
+
+    /// <summary>
+    /// Draws a rendered diagram, or — when rendering failed — the source and the reason,
+    /// which is the one thing a reader can act on. A DBML fence also gets the detail panel
+    /// beside it carrying everything an erDiagram cannot express (plan.md section 4.2).
+    /// </summary>
+    private Control Diagram(DiagramRenderBlock diagram)
+    {
+        var panel = new StackPanel { Spacing = 8 };
+
+        if (diagram.IsRendered)
+        {
+            panel.Children.Add(SvgControl(diagram));
+        }
+        else
+        {
+            panel.Children.Add(Caption($"{diagram.Kind.ToString().ToLowerInvariant()} diagram"));
+            panel.Children.Add(new SelectableTextBlock
+            {
+                Text = diagram.Source.TrimEnd(),
+                FontFamily = _theme.CodeFontFamily,
+                FontSize = _theme.FontSize * 0.9,
+                Foreground = _theme.Muted,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        foreach (string diagnostic in diagram.Diagnostics)
+        {
+            panel.Children.Add(new SelectableTextBlock
+            {
+                Text = diagnostic,
+                FontSize = _theme.FontSize * 0.85,
+                Foreground = diagram.IsRendered ? _theme.Muted : _theme.UnresolvedLink,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        if (diagram.Schema is { } schema && !schema.IsEmpty)
+        {
+            panel.Children.Add(SchemaDetailPanel(schema));
+        }
+
+        return new Border
+        {
+            Background = _theme.SurfaceBackground,
+            BorderBrush = _theme.Border,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(14, 12),
+            Child = panel,
+        };
+    }
+
+    private Control SvgControl(DiagramRenderBlock diagram)
+    {
+        try
+        {
+            var image = new Image
+            {
+                Source = new SvgImage { Source = SvgSource.LoadFromSvg(diagram.Svg) },
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+
+            if (diagram.Width > 0 && diagram.Height > 0)
+            {
+                image.MaxWidth = diagram.Width;
+                image.MaxHeight = diagram.Height;
+            }
+
+            return image;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException)
+        {
+            // A backend that produced SVG the display cannot parse is still a failed
+            // render from the reader's point of view.
+            return Caption($"This diagram could not be displayed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// The table-detail panel: enums, groups, indexes, defaults and notes, none of which
+    /// survive the trip through Mermaid's erDiagram.
+    /// </summary>
+    private Control SchemaDetailPanel(DbmlSchema schema)
+    {
+        var panel = new StackPanel { Spacing = 6 };
+
+        foreach (DbmlTable table in schema.Tables)
+        {
+            var rows = new StackPanel { Spacing = 2 };
+
+            foreach (DbmlColumn column in table.Columns)
+            {
+                var flags = new List<string>();
+
+                if (column.IsPrimaryKey)
+                {
+                    flags.Add("pk");
+                }
+
+                if (column.IsUnique)
+                {
+                    flags.Add("unique");
+                }
+
+                if (column.IsNotNull)
+                {
+                    flags.Add("not null");
+                }
+
+                if (column.Default is { Length: > 0 } value)
+                {
+                    flags.Add($"default {value}");
+                }
+
+                rows.Children.Add(Caption(
+                    $"{column.Name} · {column.Type}{(flags.Count > 0 ? " · " + string.Join(", ", flags) : string.Empty)}"));
+            }
+
+            foreach (DbmlIndex index in table.Indexes)
+            {
+                rows.Children.Add(Caption(
+                    $"index ({string.Join(", ", index.Columns)}){(index.IsUnique ? " unique" : string.Empty)}"));
+            }
+
+            if (table.Note is { Length: > 0 } note)
+            {
+                rows.Children.Add(Caption(note));
+            }
+
+            panel.Children.Add(new Expander
+            {
+                Header = new TextBlock
+                {
+                    Text = table.QualifiedName,
+                    FontWeight = FontWeight.SemiBold,
+                    FontSize = _theme.FontSize * 0.9,
+                },
+                Content = rows,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+            });
+        }
+
+        foreach (DbmlEnum enumeration in schema.Enums)
+        {
+            panel.Children.Add(Caption(
+                $"enum {enumeration.Name}: {string.Join(", ", enumeration.Values.Select(v => v.Name))}"));
+        }
+
+        foreach (DbmlTableGroup group in schema.TableGroups)
+        {
+            panel.Children.Add(Caption($"group {group.Name}: {string.Join(", ", group.Tables)}"));
+        }
+
+        foreach (DbmlStickyNote note in schema.Notes)
+        {
+            panel.Children.Add(Caption($"{note.Name}: {note.Text}"));
+        }
+
+        return new Border
+        {
+            BorderBrush = _theme.Border,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(0, 8, 0, 0),
             Child = panel,
         };
     }

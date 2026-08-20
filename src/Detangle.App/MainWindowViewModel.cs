@@ -3,6 +3,7 @@ using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Detangle.Core.Vault;
 using Detangle.Rendering;
+using Detangle.Rendering.Diagrams;
 using Detangle.Rendering.Model;
 
 namespace Detangle.App;
@@ -31,6 +32,21 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private VaultSnapshot? _vault;
     private RenderModelBuilder? _builder;
+
+    /// <summary>Creates the view model.</summary>
+    /// <param name="diagramRenderer">
+    /// The diagram backend. Defaults to Mermaider in process; the desktop head passes a
+    /// WebView-backed one when the setting is on and the platform can host it.
+    /// </param>
+    /// <param name="theme">Which palette to render against.</param>
+    public MainWindowViewModel(IDiagramRenderer? diagramRenderer = null, DiagramTheme theme = DiagramTheme.Light)
+    {
+        _diagramRenderer = diagramRenderer ?? new MermaiderDiagramRenderer();
+        _diagramTheme = theme;
+    }
+
+    private readonly IDiagramRenderer _diagramRenderer;
+    private readonly DiagramTheme _diagramTheme;
 
     /// <summary>The product name, shown in the window chrome.</summary>
     public string Title => "Detangle";
@@ -65,7 +81,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
             return;
         }
 
-        _builder = new RenderModelBuilder(_vault);
+        // Diagram SVG is cached per vault: the same fence rendered on every visit to a
+        // page is the difference between instant navigation and a visible stall.
+        var renderer = new CachingDiagramRenderer(
+            _diagramRenderer, new FileDiagramCacheStore(_vault.RootPath));
+
+        _builder = new RenderModelBuilder(
+            _vault,
+            options: new RenderOptions
+            {
+                DiagramRenderer = renderer,
+                DiagramTheme = _diagramTheme,
+            });
         VaultPath = _vault.RootPath;
 
         Documents.Clear();

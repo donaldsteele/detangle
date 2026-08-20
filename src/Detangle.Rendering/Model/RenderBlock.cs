@@ -1,3 +1,4 @@
+using Detangle.Core.Dbml;
 using Detangle.Core.Linking;
 using Detangle.Core.Parsing;
 
@@ -73,6 +74,35 @@ public sealed record HeadingRenderBlock(
 /// <param name="Source">The code, without the fences.</param>
 /// <param name="IsDiagram">True for a language the diagram renderer will claim.</param>
 public sealed record CodeRenderBlock(string Language, string Source, bool IsDiagram) : RenderBlock;
+
+/// <summary>
+/// A diagram fence — "```mermaid" or "```dbml" — with its rendered SVG.
+/// <para>
+/// The source is kept beside the picture on purpose: a diagram that failed to render
+/// shows its source and the parser's complaint instead of a blank space, and a DBML
+/// block carries its parsed schema so the table-detail panel can show what an
+/// <c>erDiagram</c> cannot say (plan.md section 4.2).
+/// </para>
+/// </summary>
+/// <param name="Kind">Which diagram language the fence declared.</param>
+/// <param name="Source">The fence's source, verbatim.</param>
+/// <param name="Svg">The rendered SVG; empty when rendering failed.</param>
+/// <param name="Width">Intrinsic width of the SVG.</param>
+/// <param name="Height">Intrinsic height of the SVG.</param>
+/// <param name="Diagnostics">Parse errors and notes about what the diagram omits.</param>
+/// <param name="Schema">The parsed DBML schema, for a "```dbml" fence.</param>
+public sealed record DiagramRenderBlock(
+    DiagramKind Kind,
+    string Source,
+    string Svg,
+    double Width,
+    double Height,
+    IReadOnlyList<string> Diagnostics,
+    DbmlSchema? Schema = null) : RenderBlock
+{
+    /// <summary>True when there is a picture to show.</summary>
+    public bool IsRendered => Svg.Length > 0;
+}
 
 /// <summary>A blockquote that is not a callout.</summary>
 /// <param name="Blocks">The quoted content.</param>

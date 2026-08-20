@@ -1,3 +1,4 @@
+using Detangle.Core.Dbml;
 using Detangle.Core.Linking;
 using Detangle.Core.Parsing;
 using Detangle.Core.Vault;
@@ -149,9 +150,11 @@ public sealed class RenderModelBuilder
             case FencedCodeBlock fenced:
                 {
                     string language = (fenced.Info ?? string.Empty).Split(' ')[0].ToLowerInvariant();
+                    string code = ToText(fenced.Lines);
 
-                    return new CodeRenderBlock(
-                        language, ToText(fenced.Lines), _options.DiagramLanguages.Contains(language));
+                    return _options.DiagramLanguages.TryGetValue(language, out DiagramKind diagram)
+                        ? BuildDiagram(diagram, code)
+                        : new CodeRenderBlock(language, code, IsDiagram: false);
                 }
 
             case CodeBlock code:
@@ -334,6 +337,30 @@ public sealed class RenderModelBuilder
     }
 
     private const char NewLine = '\n';
+
+    /// <summary>
+    /// Renders a diagram fence. Rendering is synchronous here by design: the model is
+    /// built off the UI thread and handed over whole, so a document never appears with
+    /// holes in it that fill in later.
+    /// </summary>
+    private RenderBlock BuildDiagram(DiagramKind kind, string source)
+    {
+        DbmlSchema? schema = kind == DiagramKind.Dbml ? DbmlParser.Parse(source) : null;
+
+        if (_options.DiagramRenderer is not { IsAvailable: true } renderer)
+        {
+            // With no backend the fence still shows its source, labelled for what it is.
+            return new DiagramRenderBlock(kind, source, string.Empty, 0, 0, [], schema);
+        }
+
+        DiagramResult result = renderer
+            .RenderAsync(kind, source, _options.DiagramTheme)
+            .GetAwaiter()
+            .GetResult();
+
+        return new DiagramRenderBlock(
+            kind, source, result.Svg, result.Width, result.Height, result.Diagnostics, schema);
+    }
 
     private ListItemRenderBlock BuildListItem(
         ListItemBlock item, VaultDocument document, BuildContext context)

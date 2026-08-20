@@ -46,9 +46,22 @@ public sealed class RenderOptions
     public bool IncludeProperties { get; init; } = true;
 
     /// <summary>
-    /// Fence languages the diagram renderer will claim in phase 3. They are marked in the
-    /// model now so that the control factory can route them without re-sniffing.
+    /// Fence languages the diagram renderer claims, mapped to the language they are.
+    /// A fence whose language is not here renders as code.
     /// </summary>
-    public IReadOnlySet<string> DiagramLanguages { get; init; } =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "mermaid", "dbml" };
+    public IReadOnlyDictionary<string, DiagramKind> DiagramLanguages { get; init; } =
+        new Dictionary<string, DiagramKind>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mermaid"] = DiagramKind.Mermaid,
+            ["dbml"] = DiagramKind.Dbml,
+        };
+
+    /// <summary>
+    /// The backend diagram fences are rendered with. Null renders them as source, which
+    /// is what a headless caller — an export, a test of the link graph — wants.
+    /// </summary>
+    public IDiagramRenderer? DiagramRenderer { get; init; }
+
+    /// <summary>Which palette diagrams are rendered against.</summary>
+    public DiagramTheme DiagramTheme { get; init; } = DiagramTheme.Light;
 }

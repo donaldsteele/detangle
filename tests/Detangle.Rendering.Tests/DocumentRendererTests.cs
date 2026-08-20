@@ -5,6 +5,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Detangle.Core.Vault;
 using Detangle.Rendering.Controls;
+using Detangle.Rendering.Diagrams;
 using Detangle.Rendering.Model;
 using Xunit;
 
@@ -225,6 +226,35 @@ public class DocumentRendererTests(HeadlessAppFixture app)
 
             Assert.Equal([true, false], boxes.Select(box => box.IsChecked));
             Assert.All(boxes, box => Assert.False(box.IsHitTestVisible));
+        });
+    }
+
+    [Fact]
+    public void DrawsRenderedDiagramsAndErrorCardsAlike()
+    {
+        VaultSnapshot vault = VaultScanner.Scan(FixturePath("torture"));
+
+        var builder = new RenderModelBuilder(
+            vault,
+            options: new RenderOptions { DiagramRenderer = new MermaiderDiagramRenderer() });
+
+        RenderDocument rendered = builder.Build(
+            vault.Index.ByRelativePath("reader.md").Single());
+
+        List<DiagramRenderBlock> diagrams = [.. rendered.Blocks.OfType<DiagramRenderBlock>()];
+
+        // A good Mermaid fence, a DBML schema, and a broken fence — the reader has to
+        // survive all three on one page.
+        Assert.Contains(diagrams, d => d.Kind == DiagramKind.Mermaid && d.IsRendered);
+        Assert.Contains(diagrams, d => d.Kind == DiagramKind.Dbml && d.IsRendered);
+        Assert.Contains(diagrams, d => !d.IsRendered && d.Diagnostics.Count > 0);
+
+        app.Invoke(() =>
+        {
+            Control control = new DocumentRenderer(DocumentTheme.Light).Render(rendered);
+            Layout(control);
+
+            Assert.NotEmpty(control.GetLogicalDescendants().OfType<Image>());
         });
     }
 

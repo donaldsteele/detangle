@@ -54,6 +54,27 @@ graph TD;
   A-->B;
 ```
 
+```dbml
+Table users {
+  id int [pk]
+  name varchar [not null]
+}
+
+Table orders {
+  id int [pk]
+  user_id int [ref: > users.id]
+}
+
+Enum status {
+  open
+  closed
+}
+```
+
+```mermaid
+this is not a valid diagram
+```
+
 ```
 An unlabelled fence.
 ```

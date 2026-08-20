@@ -42,14 +42,13 @@ public class RenderModelBuilderTests
     }
 
     [Fact]
-    public void MarksDiagramFencesWithoutConsumingThem()
+    public void DiagramFencesBecomeDiagramBlocksAndKeepTheirSource()
     {
-        var code = Assert.IsType<CodeRenderBlock>(
+        var diagram = Assert.IsType<DiagramRenderBlock>(
             RenderTestVault.BodyOf("```mermaid\ngraph TD;\nA-->B;\n```\n")[0]);
 
-        Assert.Equal("mermaid", code.Language);
-        Assert.True(code.IsDiagram);
-        Assert.Contains("A-->B", code.Source);
+        Assert.Equal(DiagramKind.Mermaid, diagram.Kind);
+        Assert.Contains("A-->B", diagram.Source, StringComparison.Ordinal);
     }
 
     [Fact]

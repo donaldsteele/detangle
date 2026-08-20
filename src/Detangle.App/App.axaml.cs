@@ -23,7 +23,10 @@ public partial class DetangleApp : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var viewModel = new MainWindowViewModel();
+            var viewModel = new MainWindowViewModel(
+                theme: ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark
+                    ? Rendering.DiagramTheme.Dark
+                    : Rendering.DiagramTheme.Light);
 
             // "detangle path/to/vault" opens straight into that vault, which is how the
             // app is launched from a shell and from the phase 2 verification run.

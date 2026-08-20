@@ -53,7 +53,9 @@ reader.md
   table rows=3 columns=3
   h2 #code: Code
   code lang=csharp lines=2
-  code(diagram) lang=mermaid lines=2
+  diagram mermaid source-only
+  diagram dbml source-only tables=2
+  diagram mermaid source-only
   code lang=- lines=1
   h2 #math: Math
   paragraph: Inline [math E = mc^2] inside a sentence.

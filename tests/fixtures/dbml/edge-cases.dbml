@@ -1,0 +1,44 @@
+// A line comment before anything else.
+
+/*
+  A block comment
+  spanning lines.
+*/
+
+Table analytics.events {
+  id bigint [pk]
+  payload jsonb
+  tags text[]
+  amount decimal(12,2)
+  recorded_at timestamptz [default: `now()`]
+  note_column varchar [note: '''
+    A multi-line note
+    with two lines.
+  ''']
+}
+
+Table sessions {
+  id uuid [pk]
+  event_id bigint
+  user_id int
+}
+
+Ref: sessions.event_id > analytics.events.id
+
+Ref many_to_many: sessions.id <> analytics.events.id
+
+Ref one_to_one: sessions.user_id - sessions.id
+
+Table composite_key {
+  a int
+  b int
+
+  indexes {
+    (a, b) [pk]
+  }
+}
+
+Enum analytics.event_kind {
+  click
+  view
+}

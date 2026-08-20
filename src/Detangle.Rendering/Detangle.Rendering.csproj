@@ -7,6 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Markdig" />
+    <PackageReference Include="Mermaider" />
     <PackageReference Include="TextMateSharp" />
     <PackageReference Include="TextMateSharp.Grammars" />
     <PackageReference Include="Svg.Controls.Skia.Avalonia" />

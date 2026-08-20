@@ -112,6 +112,20 @@ public class RenderGoldenTests
                     .Append('\n');
                 break;
 
+            case DiagramRenderBlock diagram:
+                output.Append(indent).Append("diagram ")
+                    .Append(diagram.Kind.ToString().ToLowerInvariant())
+                    .Append(diagram.IsRendered ? " rendered" : " source-only")
+                    .Append(diagram.Schema is null ? string.Empty : $" tables={diagram.Schema.Tables.Count}");
+
+                foreach (string note in diagram.Diagnostics)
+                {
+                    output.Append(" [").Append(Clip(note, 40)).Append(']');
+                }
+
+                output.Append('\n');
+                break;
+
             case CalloutRenderBlock callout:
                 output.Append(indent).Append("callout ").Append(callout.Dialect.ToString().ToLowerInvariant())
                     .Append('/').Append(callout.Kind)

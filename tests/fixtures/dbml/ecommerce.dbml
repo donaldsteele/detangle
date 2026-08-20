@@ -1,0 +1,66 @@
+Project ecommerce {
+  database_type: 'PostgreSQL'
+  Note: 'A small shop schema.'
+}
+
+Table users as U {
+  id integer [pk, increment]
+  username varchar(255) [not null, unique, note: 'Login name']
+  role user_role [default: 'member']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (username, role) [name: 'idx_user_role', unique]
+    created_at [type: btree]
+  }
+
+  Note: 'Everyone who can sign in.'
+}
+
+Table merchants {
+  id integer [pk]
+  country_code integer
+  merchant_name varchar
+  "created at" varchar
+  admin_id int [ref: > U.id]
+}
+
+Table order_items {
+  order_id int [ref: > orders.id]
+  product_id int
+  quantity int [default: 1]
+}
+
+Table orders {
+  id int [pk]
+  user_id int [not null, unique]
+  status varchar
+  created_at varchar [note: 'When placed']
+}
+
+Table products {
+  id int [pk]
+  name varchar
+  merchant_id int [not null]
+}
+
+Enum user_role {
+  member
+  admin [note: 'Can do anything']
+  "super admin"
+}
+
+Ref user_orders: users.id < orders.user_id
+
+Ref: order_items.product_id > products.id
+
+Ref: products.merchant_id > merchants.id [delete: cascade, update: no action]
+
+TableGroup commerce {
+  merchants
+  products
+}
+
+Note shop_note {
+  'Prices are in minor units.'
+}
