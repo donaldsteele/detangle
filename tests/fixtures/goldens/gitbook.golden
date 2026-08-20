@@ -1,0 +1,16 @@
+flavor: GitBook
+documents: 4
+
+README.md
+  markdown "chapter/README.md" -> ExactVaultPath chapter/README.md
+  markdown "chapter" -> Alias chapter/README.md
+
+SUMMARY.md
+  markdown "README.md" -> ExactVaultPath README.md
+  markdown "chapter/README.md" -> ExactVaultPath chapter/README.md
+
+chapter/README.md
+
+chapter/page.md
+  markdown "README.md" -> NoteRelativePath chapter/README.md
+

@@ -5,7 +5,14 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Not invariant: in globalization-invariant mode String.Normalize is a no-op, and
+      Unicode NFC folding is load-bearing for the resolver. macOS writes filenames in
+      NFD, so a link typed as NFC would never match its own file (plan.md section 3.2).
+      ICU is the price of that edge case being handled at all.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <PredefinedCulturesOnly>true</PredefinedCulturesOnly>
     <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
   </PropertyGroup>
 

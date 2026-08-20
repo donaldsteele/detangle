@@ -1,0 +1,9 @@
+flavor: Quartz
+documents: 3
+
+content/Folder Note.md
+
+content/index.md
+  wikilink "Folder Note" -> NoteRelativePath content/Folder Note.md
+  wikilink "folder-note" -> NoteRelativePath content/Folder Note.md
+

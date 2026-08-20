@@ -1,0 +1,10 @@
+flavor: DeepWiki
+documents: 4
+
+Architecture.md
+
+Overview.md
+  markdown "Architecture.md" -> ExactVaultPath Architecture.md
+  wikilink "Architecture" -> ExactVaultPath Architecture.md
+  markdown "src/resolver.py#L10-L20" -> ExactVaultPath src/resolver.py [anchor: LineRange L10]
+

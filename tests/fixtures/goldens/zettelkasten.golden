@@ -1,0 +1,13 @@
+flavor: Zettelkasten
+documents: 4
+
+202604201530-on-attention.md
+  wikilink "202604201531" -> Identifier 202604201531-on-context.md
+  wikilink "202604201532-on-memory" -> ExactVaultPath 202604201532-on-memory.md
+
+202604201531-on-context.md
+
+202604201532-on-memory.md
+
+202604201533-on-recall.md
+

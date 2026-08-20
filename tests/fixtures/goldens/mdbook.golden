@@ -1,0 +1,12 @@
+flavor: MdBook
+documents: 4
+
+src/SUMMARY.md
+  markdown "ch01.md" -> NoteRelativePath src/ch01.md
+  markdown "ch02.md" -> NoteRelativePath src/ch02.md
+
+src/ch01.md
+  markdown "ch02.md" -> NoteRelativePath src/ch02.md
+
+src/ch02.md
+

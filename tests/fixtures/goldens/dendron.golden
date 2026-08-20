@@ -1,0 +1,14 @@
+flavor: Dendron
+documents: 5
+
+lang.python.basics.md
+
+lang.python.md
+  wikilink "lang.python.basics" -> ExactVaultPath lang.python.basics.md
+  wikilink "Basics" -> Alias lang.python.basics.md
+  wikilink "lang.python.basics#variables" -> ExactVaultPath lang.python.basics.md [anchor: RawHeading L8]
+
+lang.rust.md
+
+root.md
+

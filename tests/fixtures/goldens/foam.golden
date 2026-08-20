@@ -1,0 +1,13 @@
+flavor: Foam
+documents: 3
+
+index.md
+  wikilink "reference/note" -> ExactVaultPath reference/note.md
+  wikilink "projects/note" -> ExactVaultPath projects/note.md
+  wikilink "note" -> CaseSensitiveStem projects/note.md [ambiguous: projects/note.md, reference/note.md]
+  wikilink "./index" -> NoteRelativePath index.md
+
+projects/note.md
+
+reference/note.md
+

@@ -1,0 +1,4 @@
+site_name: Docs
+nav:
+  - Home: index.md
+  - Guide: guide/index.md

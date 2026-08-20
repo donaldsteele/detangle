@@ -1,0 +1,14 @@
+flavor: Logseq
+documents: 4
+
+journals/2026_08_20.md
+  wikilink "home" -> CaseSensitiveStem pages/home.md
+
+pages/home.md
+  wikilink "projects/detangle" -> EncodingVariant pages/projects___detangle.md
+  wikilink "projects%2Fdetangle" -> EncodingVariant pages/projects___detangle.md
+  blockreference "#^6512a0f1-1111-2222-3333-444455556666" -> Identifier pages/projects___detangle.md [anchor: BlockUuid L1]
+  tag "reading" -> NotAttempted (none)
+
+pages/projects___detangle.md
+

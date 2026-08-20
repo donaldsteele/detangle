@@ -1,0 +1,10 @@
+flavor: Docusaurus
+documents: 3
+
+docs/advanced.md
+  markdown "./intro.md" -> NoteRelativePath docs/intro.md
+
+docs/intro.md
+  markdown "advanced.md" -> NoteRelativePath docs/advanced.md
+  wikilink "getting-started" -> Identifier docs/intro.md
+

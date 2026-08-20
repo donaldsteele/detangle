@@ -1,0 +1,57 @@
+flavor: Generic
+documents: 12
+
+anchor-host.md
+
+case-drift.md
+
+encoded target.md
+
+first/ambiguous.md
+
+folder-note.md
+
+folder/index.md
+
+second/ambiguous.md
+
+separator-drift.md
+
+torture.md
+  wikilink "CASE-DRIFT" -> CaseInsensitiveStem case-drift.md
+  wikilink "separator_drift" -> NormalizedName separator-drift.md
+  wikilink "separator drift" -> NormalizedName separator-drift.md
+  wikilink "separator.drift" -> NormalizedName separator-drift.md
+  wikilink "encoded%20target" -> ExactVaultPath encoded target.md
+  wikilink "encoded%2520target" -> ExactVaultPath encoded target.md
+  markdown "encoded%20target.md" -> ExactVaultPath encoded target.md
+  wikilink "extension-probe.png" -> ExactVaultPath extension-probe.png
+  wikilink "missing-extension" -> Placeholder (none)
+  markdown "missing-extension.md" -> Placeholder (none)
+  wikilink "anchor-host#Punctuation: Don't, Really?" -> ExactVaultPath anchor-host.md [anchor: RawHeading L3]
+  wikilink "anchor-host#punctuation-dont-really" -> ExactVaultPath anchor-host.md [anchor: HeadingSlug L3]
+  wikilink "anchor-host#Duplicate" -> ExactVaultPath anchor-host.md [anchor: RawHeading L7]
+  wikilink "anchor-host#duplicate-1" -> ExactVaultPath anchor-host.md [anchor: HeadingSlug L11]
+  wikilink "anchor-host#Outer#Inner" -> ExactVaultPath anchor-host.md [anchor: RawHeading L17]
+  wikilink "anchor-host#^blockmark" -> ExactVaultPath anchor-host.md [anchor: BlockId L19]
+  wikilink "anchor-host#no-such-heading" -> ExactVaultPath anchor-host.md [anchor: Unresolved]
+  wikilink "#Case and separators" -> ExactVaultPath torture.md [anchor: RawHeading L17]
+  wikilink "folder" -> FolderIndex folder/index.md
+  wikilink "folder/index" -> ExactVaultPath folder/index.md
+  wikilink "folder-note" -> ExactVaultPath folder-note.md
+  wikilink "ambiguous" -> CaseSensitiveStem first/ambiguous.md [ambiguous: first/ambiguous.md, second/ambiguous.md]
+  wikilink "first/ambiguous" -> ExactVaultPath first/ambiguous.md
+  wikilink "case-drift" -> ExactVaultPath case-drift.md
+  wikilink! "extension-probe.png" -> ExactVaultPath extension-probe.png
+  wikilink! "extension-probe.png" -> ExactVaultPath extension-probe.png
+  wikilink "case-drift" -> ExactVaultPath case-drift.md
+  wikilink "café" -> NormalizedName unicode/café.md
+  wikilink "unicode/café" -> ExactVaultPath unicode/café.md
+  markdown "https://example.com/page" -> NotAttempted (none)
+  markdown "mailto:someone@example.com" -> NotAttempted (none)
+  frontmatter "case-drift" -> ExactVaultPath case-drift.md
+  frontmatter "separator drift" -> NormalizedName separator-drift.md
+  frontmatter "encoded-target" -> NormalizedName encoded target.md
+
+unicode/café.md
+

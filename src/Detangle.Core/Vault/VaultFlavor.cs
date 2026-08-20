@@ -1,4 +1,4 @@
-namespace Detangle.Core;
+namespace Detangle.Core.Vault;
 
 /// <summary>
 /// The wiki formats Detangle can recognise on disk. Each flavor selects which

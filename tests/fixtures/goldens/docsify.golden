@@ -1,0 +1,12 @@
+flavor: Docsify
+documents: 3
+
+_sidebar.md
+  markdown "/" -> FolderIndex index.md
+  markdown "guide.md" -> ExactVaultPath guide.md
+
+guide.md
+
+index.md
+  markdown "guide.md" -> ExactVaultPath guide.md
+

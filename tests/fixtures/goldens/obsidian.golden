@@ -1,0 +1,16 @@
+flavor: Obsidian
+documents: 3
+
+Beta.md
+  wikilink "Alpha Note" -> CaseSensitiveStem notes/Alpha Note.md
+  wikilink "alpha note" -> CaseInsensitiveStem notes/Alpha Note.md
+  wikilink "Alpha" -> Alias notes/Alpha Note.md
+  wikilink "Alpha Note#A Sub-Heading" -> CaseSensitiveStem notes/Alpha Note.md [anchor: RawHeading L9]
+  wikilink "Alpha Note#^intro" -> CaseSensitiveStem notes/Alpha Note.md [anchor: BlockId L7]
+  wikilink "notes/Alpha Note" -> ExactVaultPath notes/Alpha Note.md
+  markdown "notes/Alpha%20Note.md" -> ExactVaultPath notes/Alpha Note.md
+  wikilink! "diagram.png" -> ExtensionProbe attachments/diagram.png
+  wikilink "nowhere" -> Placeholder (none)
+
+notes/Alpha Note.md
+

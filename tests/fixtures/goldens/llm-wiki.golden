@@ -1,0 +1,17 @@
+flavor: LlmWiki
+documents: 5
+
+wiki/SCHEMA.md
+
+wiki/concepts/attention-is-all-you-need.md
+  wikilink "vaswani-ashish" -> CaseSensitiveStem wiki/entities/vaswani-ashish.md
+  frontmatter "vaswani-ashish" -> CaseSensitiveStem wiki/entities/vaswani-ashish.md
+
+wiki/entities/vaswani-ashish.md
+
+wiki/index.md
+  wikilink "Attention Is All You Need" -> NormalizedName wiki/concepts/attention-is-all-you-need.md
+  wikilink "concepts/attention-is-all-you-need" -> NoteRelativePath wiki/concepts/attention-is-all-you-need.md
+  wikilink "Vaswani, Ashish" -> Alias wiki/entities/vaswani-ashish.md
+  wikilink "missing-page" -> Placeholder (none)
+

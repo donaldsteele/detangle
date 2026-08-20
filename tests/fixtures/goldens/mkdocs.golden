@@ -1,0 +1,14 @@
+flavor: MkDocs
+documents: 4
+
+docs/guide/deep-dive.md
+
+docs/guide/index.md
+  markdown "../index.md" -> NoteRelativePath docs/index.md
+  markdown "deep-dive.md" -> NoteRelativePath docs/guide/deep-dive.md
+
+docs/index.md
+  markdown "guide/index.md" -> NoteRelativePath docs/guide/index.md
+  markdown "guide" -> Alias docs/guide/index.md
+  markdown "guide/deep-dive.md" -> NoteRelativePath docs/guide/deep-dive.md
+

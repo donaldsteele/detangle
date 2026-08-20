@@ -1,0 +1,2 @@
+def resolve():
+    return None
