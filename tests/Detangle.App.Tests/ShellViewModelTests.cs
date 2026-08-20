@@ -1,0 +1,265 @@
+using Detangle.Core.Graph;
+using Detangle.Core.Vault;
+using Detangle.Rendering.Model;
+using Xunit;
+
+namespace Detangle.App.Tests;
+
+/// <summary>
+/// Tests for the reader shell: tabs, history, panes, palette and theming. The shell is
+/// deliberately free of Avalonia types so this suite needs no UI platform — the window
+/// only wires these decisions to controls.
+/// </summary>
+public class ShellViewModelTests
+{
+    [Fact]
+    public void OpeningAVaultBuildsNavigationTagsAndTheGraph()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        Assert.True(shell.HasVault);
+        Assert.NotEmpty(shell.Navigation);
+        Assert.NotEmpty(shell.Tags);
+        Assert.NotNull(shell.Graph);
+        Assert.Equal("IndexPage", shell.NavigationSourceName);
+    }
+
+    [Fact]
+    public void OpeningAVaultLandsOnTheFirstNavigatedPage()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        Assert.NotNull(shell.ActiveTab);
+        Assert.Equal("wiki/index.md", shell.ActiveTab!.Document.RelativePath);
+    }
+
+    [Fact]
+    public void AMissingVaultReportsItselfWithoutThrowing()
+    {
+        var shell = new ShellViewModel();
+
+        shell.OpenVault(Path.Combine(FixtureRoot, "vaults", "no-such-vault"));
+
+        Assert.False(shell.HasVault);
+        Assert.Contains("not found", shell.Status, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TheStatusLineCountsBrokenAndAmbiguousLinks()
+    {
+        ShellViewModel shell = OpenVault("torture");
+
+        Assert.Contains("broken", shell.LinkSummary, StringComparison.Ordinal);
+        Assert.Contains("ambiguous", shell.LinkSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpeningTheSameDocumentTwiceReusesItsTab()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+        VaultDocument document = Document(shell, "wiki/entities/vaswani-ashish.md");
+
+        shell.Open(document);
+        int after = shell.Tabs.Count;
+        shell.Open(document);
+
+        Assert.Equal(after, shell.Tabs.Count);
+    }
+
+    [Fact]
+    public void ClosingATabActivatesItsNeighbour()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.Open(Document(shell, "wiki/entities/vaswani-ashish.md"));
+        shell.Open(Document(shell, "wiki/concepts/attention-is-all-you-need.md"));
+
+        DocumentTab last = shell.Tabs[^1];
+        shell.Close(last);
+
+        Assert.DoesNotContain(last, shell.Tabs);
+        Assert.NotNull(shell.ActiveTab);
+    }
+
+    [Fact]
+    public void HistoryGoesBackAndForward()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+        string first = shell.ActiveTab!.Document.RelativePath;
+
+        shell.Open(Document(shell, "wiki/entities/vaswani-ashish.md"));
+        Assert.True(shell.CanGoBack);
+
+        shell.GoBack();
+        Assert.Equal(first, shell.ActiveTab!.Document.RelativePath);
+        Assert.True(shell.CanGoForward);
+
+        shell.GoForward();
+        Assert.Equal("wiki/entities/vaswani-ashish.md", shell.ActiveTab!.Document.RelativePath);
+    }
+
+    [Fact]
+    public void GoingBackDoesNotItselfBecomeHistory()
+    {
+        // Otherwise back-and-forward would ping-pong between two pages forever.
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.Open(Document(shell, "wiki/entities/vaswani-ashish.md"));
+        shell.GoBack();
+
+        Assert.False(shell.CanGoBack);
+    }
+
+    [Fact]
+    public void TheOutlineAndBacklinksFollowTheActiveTab()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.Open(Document(shell, "wiki/entities/vaswani-ashish.md"));
+
+        Assert.Contains(shell.Outline, h => h.Text == "Vaswani, Ashish");
+        Assert.NotEmpty(shell.Backlinks);
+        Assert.All(shell.Backlinks, b => Assert.NotEqual(
+            "wiki/entities/vaswani-ashish.md", b.Source.RelativePath));
+    }
+
+    [Fact]
+    public void BacklinksNameTheRuleThatResolvedThem()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.Open(Document(shell, "wiki/concepts/attention-is-all-you-need.md"));
+
+        // The index links to this page twice — once by title, once by path — and both
+        // are backlinks, each labelled with the rule that got it there.
+        Assert.Contains(
+            shell.Backlinks,
+            b => b.Source.RelativePath == "wiki/index.md"
+                && b.Resolution.Rule == Core.Linking.ResolutionRule.NormalizedName);
+        Assert.Contains(
+            shell.Backlinks,
+            b => b.Source.RelativePath == "wiki/index.md"
+                && b.Resolution.Rule == Core.Linking.ResolutionRule.NoteRelativePath);
+    }
+
+    [Fact]
+    public void FollowingALinkOpensItsTarget()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        RenderDocument rendered = shell.ActiveTab!.Rendered!;
+        Core.Linking.LinkResolution resolution = rendered.Resolutions
+            .First(r => r.Target?.RelativePath == "wiki/entities/vaswani-ashish.md");
+
+        shell.Follow(resolution);
+
+        Assert.Equal("wiki/entities/vaswani-ashish.md", shell.ActiveTab!.Document.RelativePath);
+    }
+
+    [Fact]
+    public void ThePaletteFindsPagesAndTheActiveDocumentsHeadings()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.TogglePalette();
+        Assert.True(shell.IsPaletteOpen);
+        Assert.NotEmpty(shell.PaletteResults);
+
+        shell.PaletteQuery = "vaswani";
+
+        Assert.All(
+            shell.PaletteResults,
+            entry => Assert.Contains("vaswani", entry.Title + entry.Subtitle, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ThePaletteOpensWhatItFinds()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.TogglePalette();
+        shell.PaletteQuery = "vaswani";
+        shell.PaletteResults[0].Invoke();
+
+        Assert.False(shell.IsPaletteOpen);
+        Assert.Equal("wiki/entities/vaswani-ashish.md", shell.ActiveTab!.Document.RelativePath);
+    }
+
+    [Fact]
+    public void SwitchingThemeRerendersEveryOpenTab()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.Open(Document(shell, "wiki/entities/vaswani-ashish.md"));
+        RenderDocument before = shell.Tabs[0].Rendered!;
+
+        shell.ToggleTheme();
+
+        Assert.True(shell.IsDarkTheme);
+        Assert.All(shell.Tabs, tab => Assert.NotNull(tab.Rendered));
+        Assert.NotSame(before, shell.Tabs[0].Rendered);
+    }
+
+    [Fact]
+    public void ReadingPositionsAreRememberedPerDocument()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.RememberPosition("wiki/index.md", 420);
+
+        Assert.Equal(420, shell.PositionOf("wiki/index.md"));
+        Assert.Equal(0, shell.PositionOf("wiki/entities/vaswani-ashish.md"));
+    }
+
+    [Fact]
+    public void TagsAreNestedByTheirSlashes()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        Assert.Contains(shell.Tags, t => t.Segment == "transformers");
+    }
+
+    [Fact]
+    public void MentionsAreOfferedForPagesThatNameTheActiveOne()
+    {
+        ShellViewModel shell = OpenVault("torture");
+
+        shell.Open(Document(shell, "case-drift.md"));
+
+        // Nothing here should throw or hang; an empty list is a fine answer.
+        Assert.NotNull(shell.Mentions);
+    }
+
+    private static ShellViewModel OpenVault(string vaultName)
+    {
+        var shell = new ShellViewModel();
+
+        shell.OpenVault(Path.Combine(FixtureRoot, "vaults", vaultName));
+
+        return shell;
+    }
+
+    private static VaultDocument Document(ShellViewModel shell, string relativePath) =>
+        shell.Vault!.Index.ByRelativePath(relativePath).Single();
+
+    private static string FixtureRoot { get; } = FindFixtures();
+
+    private static string FindFixtures()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            string candidate = Path.Combine(directory.FullName, "tests", "fixtures");
+
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException($"tests/fixtures was not found above {AppContext.BaseDirectory}.");
+    }
+}

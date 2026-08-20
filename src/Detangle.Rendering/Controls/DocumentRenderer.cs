@@ -47,6 +47,13 @@ public sealed class DocumentRenderer
     /// <summary>Raised when a link in a rendered document is clicked.</summary>
     public event EventHandler<LinkActivatedEventArgs>? LinkActivated;
 
+    /// <summary>
+    /// Builds the hover preview for a link, when one is available. The shell supplies
+    /// this because previewing a page means rendering it, which needs the vault the
+    /// renderer itself knows nothing about.
+    /// </summary>
+    public Func<LinkResolution, Control?>? PreviewFactory { get; set; }
+
     /// <summary>Renders a document into a scrollable panel of blocks.</summary>
     public Control Render(RenderDocument document)
     {
@@ -880,7 +887,45 @@ public sealed class DocumentRenderer
 
         button.Click += (_, _) => LinkActivated?.Invoke(this, new LinkActivatedEventArgs(resolution, externalUrl));
 
+        if (externalUrl is null && resolution.Target is { IsMarkdown: true })
+        {
+            AttachPreview(button, resolution, tooltip);
+        }
+
         return button;
+    }
+
+    /// <summary>
+    /// Replaces a link's plain tooltip with a rendered preview of the page it leads to,
+    /// built on first hover so that a page full of links costs nothing until one is
+    /// actually pointed at.
+    /// </summary>
+    private void AttachPreview(Control target, LinkResolution resolution, string tooltip)
+    {
+        bool built = false;
+
+        target.PointerEntered += (_, _) =>
+        {
+            if (built || PreviewFactory is null)
+            {
+                return;
+            }
+
+            built = true;
+            Control? preview = PreviewFactory(resolution);
+
+            if (preview is null)
+            {
+                return;
+            }
+
+            ToolTip.SetTip(target, new StackPanel
+            {
+                Spacing = 6,
+                MaxWidth = 460,
+                Children = { Caption(tooltip), preview },
+            });
+        };
     }
 
     private Control ImageControl(ImageRun image)
