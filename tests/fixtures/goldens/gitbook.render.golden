@@ -1,0 +1,23 @@
+README.md
+  h1 #introduction: Introduction
+  list items=2
+    item
+      paragraph: [link ExactVaultPath -> chapter/README.md]
+    item
+      paragraph: [link Alias -> chapter/README.md]
+
+SUMMARY.md
+  h1 #summary: Summary
+  list items=2
+    item
+      paragraph: [link ExactVaultPath -> README.md]
+    item
+      paragraph: [link ExactVaultPath -> chapter/README.md]
+
+chapter/README.md
+  h1 #chapter: Chapter
+
+chapter/page.md
+  h1 #page: Page
+  paragraph: [link NoteRelativePath -> chapter/README.md]
+

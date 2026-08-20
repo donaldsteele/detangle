@@ -1,0 +1,24 @@
+lang.python.basics.md
+  properties yaml references=0
+  h1 #basics: Basics
+  h2 #variables: Variables
+
+lang.python.md
+  properties yaml references=0
+  h1 #python: Python
+  list items=3
+    item
+      paragraph: [link ExactVaultPath -> lang.python.basics.md]
+    item
+      paragraph: [link Alias -> lang.python.basics.md]
+    item
+      paragraph: [link ExactVaultPath -> lang.python.basics.md]
+
+lang.rust.md
+  properties yaml references=0
+  h1 #rust: Rust
+
+root.md
+  properties yaml references=0
+  h1 #root: Root
+

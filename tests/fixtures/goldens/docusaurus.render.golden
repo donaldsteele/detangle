@@ -1,0 +1,16 @@
+docs/advanced.md
+  properties yaml references=0
+  h1 #advanced: Advanced
+  list items=1
+    item
+      paragraph: [link NoteRelativePath -> docs/intro.md]
+
+docs/intro.md
+  properties yaml references=0
+  h1 #intro: Intro
+  list items=2
+    item
+      paragraph: [link NoteRelativePath -> docs/advanced.md]
+    item
+      paragraph: [link Identifier -> docs/intro.md]
+

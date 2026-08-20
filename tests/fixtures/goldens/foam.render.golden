@@ -1,0 +1,18 @@
+index.md
+  h1 #index: Index
+  list items=4
+    item
+      paragraph: [link ExactVaultPath -> reference/note.md]
+    item
+      paragraph: [link ExactVaultPath -> projects/note.md]
+    item
+      paragraph: [link CaseSensitiveStem -> projects/note.md]
+    item
+      paragraph: [link NoteRelativePath -> index.md]
+
+projects/note.md
+  h1 #projects-note: Projects note
+
+reference/note.md
+  h1 #reference-note: Reference note
+

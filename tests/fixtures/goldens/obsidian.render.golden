@@ -1,0 +1,29 @@
+Beta.md
+  h1 #beta: Beta
+  list items=9
+    item
+      paragraph: [link CaseSensitiveStem -> notes/Alpha Note.md]
+    item
+      paragraph: [link CaseInsensitiveStem -> notes/Alpha Note.md]
+    item
+      paragraph: [link Alias -> notes/Alpha Note.md]
+    item
+      paragraph: [link CaseSensitiveStem -> notes/Alpha Note.md]
+    item
+      paragraph: [link CaseSensitiveStem -> notes/Alpha Note.md]
+    item
+      paragraph: [link ExactVaultPath -> notes/Alpha Note.md]
+    item
+      paragraph: [link ExactVaultPath -> notes/Alpha Note.md]
+    item
+      paragraph: [image -> attachments/diagram.png]
+    item
+      paragraph: [link Placeholder -> (none)]
+
+notes/Alpha Note.md
+  properties yaml references=0
+  h1 #alpha-note: Alpha Note
+  paragraph: Body text. ^ intro
+  h2 #a-sub-heading: A Sub-Heading
+  paragraph: More text.
+

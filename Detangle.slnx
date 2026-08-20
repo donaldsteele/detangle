@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Detangle.Core.Tests/Detangle.Core.Tests.csproj" />
+    <Project Path="tests/Detangle.Rendering.Tests/Detangle.Rendering.Tests.csproj" />
   </Folder>
 </Solution>

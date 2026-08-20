@@ -1,5 +1,5 @@
 flavor: Generic
-documents: 12
+documents: 13
 
 anchor-host.md
 
@@ -12,6 +12,16 @@ first/ambiguous.md
 folder-note.md
 
 folder/index.md
+
+reader.md
+  wikilink "case-drift" -> ExactVaultPath case-drift.md
+  wikilink "case-drift" -> ExactVaultPath case-drift.md
+  wikilink! "anchor-host#Duplicate" -> ExactVaultPath anchor-host.md [anchor: RawHeading L7]
+  wikilink! "folder/index" -> ExactVaultPath folder/index.md
+  wikilink! "nowhere-at-all" -> Placeholder (none)
+  wikilink! "extension-probe.png" -> ExactVaultPath extension-probe.png
+  markdown! "extension-probe.png" -> ExactVaultPath extension-probe.png
+  frontmatter "anchor-host" -> ExactVaultPath anchor-host.md
 
 second/ambiguous.md
 
@@ -45,7 +55,7 @@ torture.md
   wikilink! "extension-probe.png" -> ExactVaultPath extension-probe.png
   wikilink! "extension-probe.png" -> ExactVaultPath extension-probe.png
   wikilink "case-drift" -> ExactVaultPath case-drift.md
-  wikilink "café" -> NormalizedName unicode/café.md
+  wikilink "café" -> NormalizedName unicode/café.md
   wikilink "unicode/café" -> ExactVaultPath unicode/café.md
   markdown "https://example.com/page" -> NotAttempted (none)
   markdown "mailto:someone@example.com" -> NotAttempted (none)

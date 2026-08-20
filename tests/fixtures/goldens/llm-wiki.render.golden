@@ -1,0 +1,26 @@
+wiki/SCHEMA.md
+  h1 #schema: Schema
+  paragraph: Pages live under `wiki/` and sources under `raw/` .
+
+wiki/concepts/attention-is-all-you-need.md
+  properties yaml references=1
+  h1 #attention-is-all-you-need: Attention Is All You Need
+  paragraph: Introduced by [link CaseSensitiveStem -> wiki/entities/vaswani-ashish.md] .
+
+wiki/entities/vaswani-ashish.md
+  properties yaml references=0
+  h1 #vaswani-ashish: Vaswani, Ashish
+
+wiki/index.md
+  properties yaml references=0
+  h1 #index: Index
+  list items=4
+    item
+      paragraph: [link NormalizedName -> wiki/concepts/attention-is-all-you-need.md]
+    item
+      paragraph: [link NoteRelativePath -> wiki/concepts/attention-is-all-you-need.md]
+    item
+      paragraph: [link Alias -> wiki/entities/vaswani-ashish.md]
+    item
+      paragraph: [link Placeholder -> (none)]
+

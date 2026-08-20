@@ -1,0 +1,15 @@
+src/SUMMARY.md
+  h1 #summary: Summary
+  list items=2
+    item
+      paragraph: [link NoteRelativePath -> src/ch01.md]
+    item
+      paragraph: [link NoteRelativePath -> src/ch02.md]
+
+src/ch01.md
+  h1 #chapter-one: Chapter one
+  paragraph: [link NoteRelativePath -> src/ch02.md]
+
+src/ch02.md
+  h1 #chapter-two: Chapter two
+

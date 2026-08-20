@@ -1,0 +1,11 @@
+content/Folder Note.md
+  h1 #folder-note: Folder Note
+
+content/index.md
+  h1 #home: Home
+  list items=2
+    item
+      paragraph: [link NoteRelativePath -> content/Folder Note.md]
+    item
+      paragraph: [link NoteRelativePath -> content/Folder Note.md]
+

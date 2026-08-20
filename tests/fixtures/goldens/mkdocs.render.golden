@@ -1,0 +1,21 @@
+docs/guide/deep-dive.md
+  h1 #deep-dive: Deep dive
+
+docs/guide/index.md
+  h1 #guide: Guide
+  list items=2
+    item
+      paragraph: [link NoteRelativePath -> docs/index.md]
+    item
+      paragraph: [link NoteRelativePath -> docs/guide/deep-dive.md]
+
+docs/index.md
+  h1 #home: Home
+  list items=3
+    item
+      paragraph: [link NoteRelativePath -> docs/guide/index.md]
+    item
+      paragraph: [link Alias -> docs/guide/index.md]
+    item
+      paragraph: [link NoteRelativePath -> docs/guide/deep-dive.md]
+

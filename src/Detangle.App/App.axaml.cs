@@ -23,10 +23,16 @@ public partial class DetangleApp : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
+            var viewModel = new MainWindowViewModel();
+
+            // "detangle path/to/vault" opens straight into that vault, which is how the
+            // app is launched from a shell and from the phase 2 verification run.
+            if (desktop.Args is [{ Length: > 0 } path, ..])
             {
-                DataContext = new MainWindowViewModel(),
-            };
+                viewModel.OpenVault(path);
+            }
+
+            desktop.MainWindow = new MainWindow { DataContext = viewModel };
         }
 
         base.OnFrameworkInitializationCompleted();

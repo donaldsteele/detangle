@@ -1,0 +1,16 @@
+_sidebar.md
+  list items=2
+    item
+      paragraph: [link FolderIndex -> index.md]
+    item
+      paragraph: [link ExactVaultPath -> guide.md]
+
+guide.md
+  h1 #guide: Guide
+
+index.md
+  h1 #home: Home
+  list items=1
+    item
+      paragraph: [link ExactVaultPath -> guide.md]
+

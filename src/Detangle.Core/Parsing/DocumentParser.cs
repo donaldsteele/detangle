@@ -35,10 +35,7 @@ public static partial class DocumentParser
             return ParsedDocument.Empty;
         }
 
-        string text = content.Replace("\r\n", "\n", StringComparison.Ordinal).TrimStart('﻿');
-        DocumentFrontmatter frontmatter = FrontmatterReader.Read(text);
-
-        string body = BlankLeadingLines(text, frontmatter.LineCount);
+        (DocumentFrontmatter frontmatter, string body) = DocumentBody.Split(content);
         int[] lineStarts = BuildLineStarts(body);
 
         MarkdownDocument document = Markdown.Parse(body, Pipeline);
@@ -89,66 +86,12 @@ public static partial class DocumentParser
         return new ParsedDocument(frontmatter, headings, blockAnchors, links);
     }
 
-    /// <summary>
-    /// Replaces the first <paramref name="lineCount"/> lines with empty ones. Deleting
-    /// them instead would shift every line number in the document by the size of a block
-    /// that varies per file.
-    /// </summary>
-    private static string BlankLeadingLines(string text, int lineCount)
-    {
-        if (lineCount <= 0)
-        {
-            return text;
-        }
-
-        var builder = new StringBuilder(text.Length);
-        int line = 0;
-
-        for (int i = 0; i < text.Length; i++)
-        {
-            if (line >= lineCount)
-            {
-                builder.Append(text, i, text.Length - i);
-                break;
-            }
-
-            if (text[i] == '\n')
-            {
-                line++;
-            }
-
-            builder.Append(text[i] == '\n' ? '\n' : ' ');
-        }
-
-        return builder.ToString();
-    }
-
     private static LinkReference? ReadMarkdownLink(string sourcePath, LinkInline link, int[] lineStarts)
     {
-        string url = link.Url ?? string.Empty;
-
-        if (url.Length == 0)
-        {
-            return null;
-        }
-
         (int line, int column) = Locate(lineStarts, link.Span.Start);
-        (string target, string? anchor, bool isBlockId) = SplitAnchor(url);
 
-        string? label = ToPlainText(link).Trim();
-
-        return new LinkReference
-        {
-            SourcePath = sourcePath,
-            RawTarget = target,
-            Label = label.Length > 0 ? label : null,
-            Anchor = anchor,
-            AnchorIsBlockId = isBlockId,
-            IsEmbed = link.IsImage,
-            Syntax = LinkSyntax.Markdown,
-            Line = line,
-            Column = column,
-        };
+        return LinkFactory.FromMarkdownLink(
+            sourcePath, link.Url ?? string.Empty, ToPlainText(link), link.IsImage, line, column);
     }
 
     /// <summary>
@@ -208,81 +151,17 @@ public static partial class DocumentParser
         }
     }
 
-    /// <summary>
-    /// Splits the inside of a wikilink into target, alias or size, and anchor.
-    /// The "|" overload (plan.md section 3.2) resolves here: in an embed whose target
-    /// has a non-markdown extension, the pipe payload is a size, not an alias.
-    /// </summary>
     private static LinkReference? ParseWikiLink(
         string sourcePath, string body, bool isEmbed, int[] lineStarts, int sourceIndex)
     {
-        if (body.Contains("[[", StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        string left = body;
-        string? right = null;
-
-        int pipe = body.IndexOf('|', StringComparison.Ordinal);
-        if (pipe >= 0)
-        {
-            left = body[..pipe];
-            right = body[(pipe + 1)..].Trim();
-        }
-
-        (string target, string? anchor, bool isBlockId) = SplitAnchor(left.Trim());
-
-        if (target.Length == 0 && anchor is null)
-        {
-            // "[[|alias]]" and "[[]]" address nothing at all.
-            return null;
-        }
-
-        bool isSize = isEmbed
-            && right is { Length: > 0 }
-            && SizeSpecPattern().IsMatch(right)
-            && !LinkNormalizer.HasMarkdownExtension(target);
-
         (int line, int column) = Locate(lineStarts, sourceIndex);
 
-        return new LinkReference
-        {
-            SourcePath = sourcePath,
-            RawTarget = target,
-            Label = isSize ? null : right is { Length: > 0 } ? right : null,
-            SizeSpec = isSize ? right : null,
-            Anchor = anchor,
-            AnchorIsBlockId = isBlockId,
-            IsEmbed = isEmbed,
-            Syntax = LinkSyntax.WikiLink,
-            Line = line,
-            Column = column,
-        };
+        return LinkFactory.FromWikiLink(sourcePath, body, isEmbed, line, column);
     }
 
-    /// <summary>
-    /// Splits a target from its fragment. "#^" is tested before "#" because a block
-    /// reference would otherwise parse as a heading anchor named "^id". Everything after
-    /// the first "#" is kept, so nested heading paths ("Note#H1#H2") survive intact.
-    /// </summary>
-    internal static (string Target, string? Anchor, bool IsBlockId) SplitAnchor(string value)
-    {
-        int blockMarker = value.IndexOf("#^", StringComparison.Ordinal);
-        if (blockMarker >= 0)
-        {
-            return (value[..blockMarker].Trim(), value[(blockMarker + 2)..].Trim(), true);
-        }
-
-        int hash = value.IndexOf('#', StringComparison.Ordinal);
-        if (hash >= 0)
-        {
-            string fragment = value[(hash + 1)..].Trim();
-            return (value[..hash].Trim(), fragment.Length > 0 ? fragment : null, false);
-        }
-
-        return (value.Trim(), null, false);
-    }
+    /// <summary>Splits a target from its fragment; see <see cref="LinkFactory.SplitAnchor"/>.</summary>
+    internal static (string Target, string? Anchor, bool IsBlockId) SplitAnchor(string value) =>
+        LinkFactory.SplitAnchor(value);
 
     /// <summary>
     /// Finds "^blockid" end-of-line markers and Logseq "id:: uuid" properties. These are
@@ -454,9 +333,6 @@ public static partial class DocumentParser
 
     [GeneratedRegex(@"(?<=^|\s)#(?<tag>[\wÀ-￿/-]+)", RegexOptions.Compiled)]
     private static partial Regex TagPattern();
-
-    [GeneratedRegex(@"^\d+(x\d+)?$", RegexOptions.Compiled | RegexOptions.IgnoreCase)]
-    private static partial Regex SizeSpecPattern();
 
     [GeneratedRegex(@"(?:^|\s)\^(?<id>[A-Za-z0-9][A-Za-z0-9_-]*)\s*$", RegexOptions.Compiled)]
     private static partial Regex BlockIdPattern();

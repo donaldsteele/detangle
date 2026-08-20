@@ -1,0 +1,202 @@
+anchor-host.md
+  h1 #anchor-host: Anchor host
+  h2 #punctuation-dont-really: Punctuation: Don't, Really?
+  paragraph: Text.
+  h2 #duplicate: Duplicate
+  paragraph: First.
+  h2 #duplicate-1: Duplicate
+  paragraph: Second.
+  h2 #outer: Outer
+  h3 #inner: Inner
+  paragraph: A block with a marker. ^ blockmark
+
+case-drift.md
+  h1 #case-drift: Case Drift
+
+encoded target.md
+  h1 #encoded-target: Encoded target
+
+first/ambiguous.md
+  h1 #first-ambiguous: First ambiguous
+
+folder-note.md
+  h1 #folder-note: Folder note
+
+folder/index.md
+  h1 #folder-index: Folder index
+
+reader.md
+  properties yaml references=1
+  h1 #reader-torture: Reader torture
+  paragraph: Everything the reader has to draw, on one page.
+  h2 #callouts-both-dialects: Callouts, both dialects
+  callout obsidian/note: Note
+    paragraph: An Obsidian callout with no title.
+  callout obsidian/warning: Mind the gap
+    paragraph: One with a title, and a [link ExactVaultPath -> case-drift.md] link inside it.
+  callout obsidian/tip [closed]: Folded by default
+    paragraph: Hidden until the reader opens it.
+  callout mkdocs/note: Note
+    paragraph: A MkDocs admonition.
+  callout mkdocs/danger: Named admonition
+    paragraph: With a title, a list:
+    list items=2
+      item
+        paragraph: one
+      item
+        paragraph: two
+  callout mkdocs/question [closed]: Collapsed admonition
+    paragraph: Only visible once expanded.
+  quote
+    paragraph: Just an ordinary quotation, not a callout.
+  h2 #tables: Tables
+  table rows=3 columns=3
+  h2 #code: Code
+  code lang=csharp lines=2
+  code(diagram) lang=mermaid lines=2
+  code lang=- lines=1
+  h2 #math: Math
+  paragraph: Inline [math E = mc^2] inside a sentence.
+  math: \int_0^1 x^2 \, dx = \frac{1}{3}
+  h2 #lists: Lists
+  list items=3
+    item [unchecked]
+      paragraph: an unchecked task
+    item [checked]
+      paragraph: a checked task
+    item
+      paragraph: a plain item
+      list items=1
+        item
+          paragraph: a nested item
+  ordered-list items=2
+    item
+      paragraph: three
+    item
+      paragraph: four
+  h2 #definitions: Definitions
+  definition-list items=1
+    definition: Term
+      paragraph: Its definition.
+  h2 #footnotes: Footnotes
+  paragraph: A claim that needs support [footnote evidence] .
+  h2 #transclusion: Transclusion
+  embed anchor-host.md
+    h2 #duplicate: Duplicate
+    paragraph: First.
+  embed folder/index.md
+    h1 #folder-index: Folder index
+  embed (unresolved) error="nowhere-at-all" matches no file in this vault.
+  h2 #attachments: Attachments
+  paragraph: [image -> extension-probe.png]
+  paragraph: [image -> extension-probe.png]
+  h2 #emphasis: Emphasis
+  paragraph: <bold>bold</> , <italic>italic</> , <strikethrough>struck</> , <highlight>highlighted</> , <superscript>super</> , <subscript>sub</> , `inline code` .
+  footnotes: evidence
+
+second/ambiguous.md
+  h1 #second-ambiguous: Second ambiguous
+
+separator-drift.md
+  h1 #separator-drift: Separator Drift
+
+torture.md
+  properties yaml references=3
+  h1 #torture: Torture
+  h2 #case-and-separators: Case and separators
+  list items=4
+    item
+      paragraph: [link CaseInsensitiveStem -> case-drift.md]
+    item
+      paragraph: [link NormalizedName -> separator-drift.md]
+    item
+      paragraph: [link NormalizedName -> separator-drift.md]
+    item
+      paragraph: [link NormalizedName -> separator-drift.md]
+  h2 #encoding: Encoding
+  list items=3
+    item
+      paragraph: [link ExactVaultPath -> encoded target.md]
+    item
+      paragraph: [link ExactVaultPath -> encoded target.md]
+    item
+      paragraph: [link ExactVaultPath -> encoded target.md]
+  h2 #extensions: Extensions
+  list items=3
+    item
+      paragraph: [link ExactVaultPath -> extension-probe.png]
+    item
+      paragraph: [link Placeholder -> (none)]
+    item
+      paragraph: [link Placeholder -> (none)]
+  h2 #anchors: Anchors
+  list items=8
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> anchor-host.md]
+    item
+      paragraph: [link ExactVaultPath -> torture.md]
+  h2 #folders: Folders
+  list items=3
+    item
+      paragraph: [link FolderIndex -> folder/index.md]
+    item
+      paragraph: [link ExactVaultPath -> folder/index.md]
+    item
+      paragraph: [link ExactVaultPath -> folder-note.md]
+  h2 #ambiguity: Ambiguity
+  list items=2
+    item
+      paragraph: [link CaseSensitiveStem -> first/ambiguous.md]
+    item
+      paragraph: [link ExactVaultPath -> first/ambiguous.md]
+  h2 #the-pipe-overload: The pipe overload
+  list items=3
+    item
+      paragraph: [link ExactVaultPath -> case-drift.md]
+    item
+      paragraph: [image -> extension-probe.png]
+    item
+      paragraph: [image -> extension-probe.png]
+  h2 #must-not-be-links: Must not be links
+  list items=3
+    item
+      paragraph: `[[inline-code-link]]`
+    item
+      paragraph: [ [escaped-link ] ]
+    item
+  code lang=md lines=1
+  code lang=- lines=1
+  h2 #trailing-punctuation-and-self: Trailing punctuation and self
+  list items=2
+    item
+      paragraph: See [link ExactVaultPath -> case-drift.md] .
+    item
+      paragraph: 
+  h2 #unicode-composition: Unicode composition
+  list items=2
+    item
+      paragraph: [link NormalizedName -> unicode/café.md]
+    item
+      paragraph: [link ExactVaultPath -> unicode/café.md]
+  h2 #external: External
+  list items=2
+    item
+      paragraph: [link NotAttempted -> (none)]
+    item
+      paragraph: [link NotAttempted -> (none)]
+
+unicode/café.md
+  h1 #cafe-nfc: Cafe NFC
+
