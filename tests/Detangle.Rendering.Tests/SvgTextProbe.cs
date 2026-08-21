@@ -8,23 +8,25 @@ using Xunit;
 namespace Detangle.Rendering.Tests;
 
 /// <summary>
-/// Characterises how the SVG renderer handles text, and pins an open defect.
+/// Characterises how the SVG renderer handles text, and guards that diagram labels draw.
 /// <para>
-/// Diagram labels do not draw. The SVG is correct — real text content, a resolved font
-/// size, a literal fill — and this renderer draws text perfectly well for the synthetic
-/// documents below, including a family supplied through a style block. It draws none for
-/// Mermaider's output, and removing every label from that document changes not one pixel.
+/// This file once recorded an open defect — "Mermaider's labels never draw, and removing
+/// every one of them changes not a pixel". The defect was in the instrument. Diagram
+/// labels sit inside opaque node fills, so counting ink against a cleared background
+/// cannot see them: a glyph painted over a filled rectangle changes what colour a pixel
+/// is, never whether it is coloured at all. The count could not have moved whatever the
+/// renderer did, so it "proved" the labels missing when they are in fact drawn, legible
+/// and correctly centred.
 /// </para>
 /// <para>
-/// Ruled out so far: unresolved CSS variables (fixed, and the colours and sizes are now
-/// literal), a font size carrying a CSS unit, a font family only reachable through CSS,
-/// numeric font weights, text anchoring with a dy shift, and grouping. Injecting a known
-/// family straight onto the text elements does not help either, and neither does deleting
-/// the style block outright.
+/// The honest measure is a with/without raster difference, which sees ink of any colour
+/// anywhere, including on top of an existing fill. That is strictly harder to satisfy
+/// than the old count, and still fails if the renderer ever stops drawing text.
 /// </para>
 /// <para>
-/// The regression test below is skipped rather than deleted: it is the check that will
-/// pass when this is fixed, and a green suite should not imply the diagrams are legible.
+/// The theory below keeps the ink count deliberately: its text lands on bare background,
+/// where the count is valid, and it characterises which forms of text resolve a typeface
+/// at all.
 /// </para>
 /// </summary>
 public partial class SvgTextProbe
@@ -44,7 +46,7 @@ public partial class SvgTextProbe
         Assert.True(inked > 0, $"{description}: nothing was drawn");
     }
 
-    [Fact(Skip = "Open defect: Svg.Skia draws no text for Mermaider's output. See the class comment.")]
+    [Fact]
     public void TheRendererDrawsTheLabels()
     {
         DiagramResult diagram = new MermaiderDiagramRenderer()
@@ -52,26 +54,55 @@ public partial class SvgTextProbe
 
         Assert.Contains("Input", diagram.Svg, StringComparison.Ordinal);
 
-        long withText = InkedPixels(diagram.Svg);
-        long withoutText = InkedPixels(TextElement().Replace(diagram.Svg, string.Empty));
+        using SKBitmap withText = Render(diagram.Svg);
+        using SKBitmap withoutText = Render(TextElement().Replace(diagram.Svg, string.Empty));
+
+        long changed = ChangedPixels(withText, withoutText);
 
         // If removing every label changes nothing, the renderer was never drawing them.
         Assert.True(
-            withText > withoutText,
-            $"text contributed no pixels: {withText} with labels, {withoutText} without");
+            changed > 0,
+            "removing every label changed no pixel: the labels were never drawn");
     }
 
-    private static long InkedPixels(string svg)
+    private static SKBitmap Render(string svg)
     {
         using var picture = new SKSvg();
 
         Assert.NotNull(picture.FromSvg(svg));
 
-        using var bitmap = new SKBitmap(600, 400);
+        // The caller owns the bitmap: it has to outlive the canvas that painted into it.
+        SKBitmap bitmap = new(600, 400);
+
         using var canvas = new SKCanvas(bitmap);
 
         canvas.Clear(SKColors.Black);
         canvas.DrawPicture(picture.Picture);
+
+        return bitmap;
+    }
+
+    private static long ChangedPixels(SKBitmap left, SKBitmap right)
+    {
+        long changed = 0;
+
+        for (int y = 0; y < left.Height; y++)
+        {
+            for (int x = 0; x < left.Width; x++)
+            {
+                if (left.GetPixel(x, y) != right.GetPixel(x, y))
+                {
+                    changed++;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    private static long InkedPixels(string svg)
+    {
+        using SKBitmap bitmap = Render(svg);
 
         long inked = 0;
 
@@ -91,7 +122,4 @@ public partial class SvgTextProbe
 
     [GeneratedRegex("<text.*?</text>", RegexOptions.Singleline)]
     private static partial Regex TextElement();
-
-    [GeneratedRegex("<style.*?</style>", RegexOptions.Singleline)]
-    private static partial Regex StyleBlock();
 }

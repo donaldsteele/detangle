@@ -51,13 +51,10 @@ internal static partial class SvgStyleFlattener
     }
 
     /// <summary>
-    /// Replaces the named font stacks with a generic family.
+    /// Reduces the named font stacks to a generic family.
     /// <para>
-    /// Mermaider asks for Inter and Segoe UI. The SVG renderer resolves a family through
-    /// the platform's font manager, which in the WebAssembly build knows about neither —
-    /// and the fonts this application ships are Avalonia resources, invisible to it. An
-    /// unresolved family drew no text at all, so the stack is reduced to a generic the
-    /// renderer will always answer.
+    /// Mermaider asks for Inter and Segoe UI, neither of which a platform font manager is
+    /// obliged to have. A generic is one every renderer answers.
     /// </para>
     /// </summary>
     private static string NormaliseFontFamilies(string svg) =>
@@ -65,6 +62,22 @@ internal static partial class SvgStyleFlattener
             match.Value.Contains("mono", StringComparison.OrdinalIgnoreCase)
                 ? "font-family: monospace"
                 : "font-family: sans-serif");
+
+    /// <summary>
+    /// Removes every font-family declaration, leaving the renderer to pick a face.
+    /// <para>
+    /// For platforms that draw text correctly until a family arrives through CSS, and then
+    /// stack every glyph of a word at one position. Text with no family set draws properly
+    /// there, so dropping the declaration is the whole remedy — the labels stay real text,
+    /// selectable and searchable, rather than being outlined into paths.
+    /// </para>
+    /// </summary>
+    public static string RemoveFontFamilies(string svg)
+    {
+        ArgumentNullException.ThrowIfNull(svg);
+
+        return FontFamilyDeclaration().Replace(svg, string.Empty);
+    }
 
     /// <summary>
     /// Gathers every custom property the document declares, then lets the seed win. The

@@ -26,6 +26,15 @@
   <ItemGroup Label="WASM demo (phase 9)">
     <PackageVersion Include="Avalonia.Browser" Version="12.1.1" />
     <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.148.0" />
+
+    <!--
+      And the same for HarfBuzz, for the same reason and with a worse symptom. Avalonia
+      resolves managed HarfBuzzSharp 14.2.0 while its WebAssembly native asset floats to
+      8.3.1.3 - six majors apart, where every other platform's asset matches. Text shaping
+      across that gap returns zero advance widths, so every glyph of a label is drawn at
+      the same position and a word becomes one dense smudge. Nothing throws.
+    -->
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="14.2.0" />
   </ItemGroup>
 
   <ItemGroup Label="MVVM">

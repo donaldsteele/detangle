@@ -8,6 +8,7 @@ using Avalonia.Svg.Skia;
 using Detangle.Core.Dbml;
 using Detangle.Core.Linking;
 using Detangle.Core.Parsing;
+using Detangle.Rendering.Diagrams;
 using Detangle.Rendering.Highlighting;
 using Detangle.Rendering.Model;
 
@@ -325,13 +326,29 @@ public sealed class DocumentRenderer
     private static string[] SplitLines(string text) =>
         text.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
 
+    /// <summary>
+    /// Parses a diagram's SVG, dropping its font-family declarations first where naming a
+    /// family through CSS breaks text drawing. The WebAssembly build stacks every glyph of
+    /// a word at one position once a family reaches it that way, and draws the same text
+    /// correctly with no family set (see <see cref="SvgTextCapability"/>).
+    /// </summary>
+    private static SvgSource LoadDiagram(string svg)
+    {
+        if (!SvgTextCapability.CanDrawText)
+        {
+            svg = SvgStyleFlattener.RemoveFontFamilies(svg);
+        }
+
+        return SvgSource.LoadFromSvg(svg);
+    }
+
     private Control SvgControl(DiagramRenderBlock diagram)
     {
         try
         {
             var image = new Image
             {
-                Source = new SvgImage { Source = SvgSource.LoadFromSvg(diagram.Svg) },
+                Source = new SvgImage { Source = LoadDiagram(diagram.Svg) },
                 Stretch = Stretch.Uniform,
                 StretchDirection = StretchDirection.DownOnly,
                 HorizontalAlignment = HorizontalAlignment.Left,

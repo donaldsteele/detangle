@@ -34,6 +34,12 @@ internal static class Program
             DetangleApp.StartupPage = page;
         }
 
+        // The browser console is the only place a diagnosis is visible on this platform,
+        // and diagram text drawing is the one thing here that differs from the desktop.
+        bool drawsText = Detangle.Rendering.Diagrams.SvgTextCapability.CanDrawText;
+
+        Console.WriteLine($"detangle: svg text draws={drawsText} - {Detangle.Rendering.Diagrams.SvgTextCapability.Diagnosis}");
+
         await BuildAvaloniaApp().StartBrowserAppAsync("out").ConfigureAwait(true);
     }
 

@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Browser" />
     <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" />
+    <PackageReference Include="HarfBuzzSharp.NativeAssets.WebAssembly" />
   </ItemGroup>
 
   <ItemGroup>
