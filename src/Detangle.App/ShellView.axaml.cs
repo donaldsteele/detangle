@@ -323,6 +323,13 @@ public partial class ShellView : UserControl
         {
             DocumentHost.Content = null;
             Ledger.Resolutions = null;
+
+            // The host is empty now, so nothing is on screen to skip re-rendering. Leaving
+            // the last path here meant closing every tab and reopening one of those same
+            // documents matched the guard below, returned early, and left the reader
+            // looking at a blank pane with a tab open above it.
+            _renderedPath = null;
+
             return;
         }
 

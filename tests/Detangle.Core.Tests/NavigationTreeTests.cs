@@ -88,7 +88,41 @@ public class NavigationTreeTests
 
         NavigationNode remainder = Assert.Single(result.Roots, n => n.Title == "Not in navigation");
 
-        Assert.Contains(remainder.Children, n => n.Document?.RelativePath == "chapter/page.md");
+        Assert.Contains(Documents(remainder), path => path == "chapter/page.md");
+    }
+
+    [Fact]
+    public void DocumentsMissingFromAStatedNavigationKeepTheirFolders()
+    {
+        // The leftovers are usually most of the vault - a stated navigation listing a
+        // hundred pages in a repository holding five hundred is ordinary - so listing them
+        // flat produces a rail with hundreds of siblings and no structure, which is what a
+        // real wiki of 462 documents showed: 359 of them in one flat list.
+        NavigationTreeBuilder.Result result = Build("gitbook");
+
+        NavigationNode remainder = Assert.Single(result.Roots, n => n.Title == "Not in navigation");
+        NavigationNode chapter = Assert.Single(remainder.Children, n => n.Title == "chapter");
+
+        Assert.True(chapter.IsGroup);
+        Assert.Contains(chapter.Children, n => n.Document?.RelativePath == "chapter/page.md");
+
+        // And a page at the root stays at the root rather than being pushed into a folder
+        // that does not exist.
+        Assert.DoesNotContain(remainder.Children, n => n.IsGroup && n.Title.Length == 0);
+    }
+
+    /// <summary>Every document reachable under a node, at any depth.</summary>
+    private static IEnumerable<string> Documents(NavigationNode node)
+    {
+        if (node.Document is { } document)
+        {
+            yield return document.RelativePath;
+        }
+
+        foreach (string path in node.Children.SelectMany(Documents))
+        {
+            yield return path;
+        }
     }
 
     [Fact]

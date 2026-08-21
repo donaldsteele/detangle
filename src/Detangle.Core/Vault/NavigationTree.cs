@@ -82,19 +82,31 @@ public static partial class NavigationTreeBuilder
     }
 
     /// <summary>Groups documents by directory, folders first, then names.</summary>
-    public static IReadOnlyList<NavigationNode> FromFileSystem(VaultSnapshot vault)
+    public static IReadOnlyList<NavigationNode> FromFileSystem(VaultSnapshot vault) =>
+        GroupByDirectory(vault.Documents.Where(d => d.IsMarkdown));
+
+    /// <summary>
+    /// Arranges any set of documents into the folder tree their paths describe.
+    /// <para>
+    /// Used for the whole vault when nothing states an order, and for the documents a
+    /// stated order left out. Those leftovers are the larger set in most real wikis — an
+    /// index page that lists a hundred pages in a repository holding five hundred is
+    /// normal — so listing them flat produced a rail that could not be used.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<NavigationNode> GroupByDirectory(IEnumerable<VaultDocument> documents)
     {
         var byDirectory = new Dictionary<string, List<VaultDocument>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (VaultDocument document in vault.Documents.Where(d => d.IsMarkdown))
+        foreach (VaultDocument document in documents)
         {
-            if (!byDirectory.TryGetValue(document.DirectoryPath, out List<VaultDocument>? documents))
+            if (!byDirectory.TryGetValue(document.DirectoryPath, out List<VaultDocument>? siblings))
             {
-                documents = [];
-                byDirectory[document.DirectoryPath] = documents;
+                siblings = [];
+                byDirectory[document.DirectoryPath] = siblings;
             }
 
-            documents.Add(document);
+            siblings.Add(document);
         }
 
         return BuildDirectory(string.Empty, byDirectory);
@@ -394,13 +406,12 @@ public static partial class NavigationTreeBuilder
 
         Collect(roots);
 
-        List<NavigationNode> missing =
-        [
-            .. vault.Documents
-                .Where(d => d.IsMarkdown && !listed.Contains(d.RelativePath))
-                .OrderBy(d => d.RelativePath, StringComparer.OrdinalIgnoreCase)
-                .Select(d => new NavigationNode(d.DisplayName, d, [])),
-        ];
+        // Grouped by folder rather than listed flat. A stated navigation usually covers a
+        // fraction of a real repository, so this branch holds most of the vault: 359 of
+        // 462 documents in the wiki this was found in, which as one flat list was a rail
+        // nobody could navigate.
+        IReadOnlyList<NavigationNode> missing = GroupByDirectory(
+            vault.Documents.Where(d => d.IsMarkdown && !listed.Contains(d.RelativePath)));
 
         return missing.Count == 0 ? [] : [new NavigationNode("Not in navigation", null, missing)];
     }

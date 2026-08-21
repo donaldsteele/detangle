@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Detangle.Core.Editing;
+using Detangle.Rendering.Export;
 
 namespace Detangle.App;
 
@@ -139,10 +140,7 @@ public partial class ShellView
 
         IStorageFile? file = await Save("HTML", "html", currentPageOnly);
 
-        if (file?.TryGetLocalPath() is { Length: > 0 } path)
-        {
-            viewModel.ExportSingleFile(path, currentPageOnly);
-        }
+        await WriteExport(file, path => viewModel.ExportSingleFile(path, currentPageOnly)).ConfigureAwait(true);
     }
 
     private async Task ExportPdf()
@@ -154,9 +152,63 @@ public partial class ShellView
 
         IStorageFile? file = await Save("PDF", "pdf", currentPageOnly: false);
 
-        if (file?.TryGetLocalPath() is { Length: > 0 } path)
+        await WriteExport(file, path => viewModel.ExportPdf(path)).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Runs an exporter and makes sure the bytes reach the file the reader chose.
+    /// <para>
+    /// A desktop file has a path, and the exporter writes straight to it. A browser file
+    /// does not: the save picker has already created an empty file, and the only way to
+    /// fill it is the stream it hands back. Writing to <c>TryGetLocalPath</c> there wrote
+    /// into the in-memory filesystem instead and left the reader with a downloaded PDF of
+    /// nothing at all - which is what it did, and is why this exists.
+    /// </para>
+    /// </summary>
+    private static async Task WriteExport(IStorageFile? file, Func<string, ExportReport?> export)
+    {
+        if (file is null)
         {
-            viewModel.ExportPdf(path);
+            return;
+        }
+
+        if (file.TryGetLocalPath() is { Length: > 0 } local)
+        {
+            export(local);
+
+            return;
+        }
+
+        // Somewhere this platform can write, which for the browser build is its own
+        // in-memory filesystem. The name matters only to the exporter, which uses the
+        // extension to decide nothing - but a temp file per export keeps two of them from
+        // colliding.
+        string staging = Path.Combine(
+            Path.GetTempPath(), $"detangle-export-{Guid.NewGuid():N}{Path.GetExtension(file.Name)}");
+
+        try
+        {
+            if (export(staging) is null || !File.Exists(staging))
+            {
+                return;
+            }
+
+            await using Stream source = File.OpenRead(staging);
+            await using Stream destination = await file.OpenWriteAsync().ConfigureAwait(true);
+
+            await source.CopyToAsync(destination).ConfigureAwait(true);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(staging);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A staging file that will not delete is litter in a filesystem that dies
+                // with the tab. It is not worth interrupting a successful export for.
+            }
         }
     }
 
