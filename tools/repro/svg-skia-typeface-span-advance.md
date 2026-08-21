@@ -1,7 +1,8 @@
 # Text collapses to one point when character fallback finds no font
 
-**Status: draft, filed nowhere.** Written for [wieslawsoltes/Svg.Skia](https://github.com/wieslawsoltes/Svg.Skia).
-A patch and a failing test are in `svg-skia-typeface-span-advance.patch`, and a runnable
+**Filed upstream** as [wieslawsoltes/Svg.Skia#558](https://github.com/wieslawsoltes/Svg.Skia/issues/558),
+with the fix in [#559](https://github.com/wieslawsoltes/Svg.Skia/pull/559). The patch and its
+regression test are also kept here in `svg-skia-typeface-span-advance.patch`, and the runnable
 reproduction is in `SvgTextWasmRepro/`.
 
 > **This note has been wrong twice, and both corrections came from measuring rather than
@@ -41,7 +42,7 @@ correct — which is why every cheaper diagnostic answered wrongly.
 
 ## Reproduction, without a browser
 
-This fails on Windows against `main`, and is included in the patch:
+This fails on Windows against `master`, and is included in the patch:
 
 ```csharp
 var assetLoader = new SkiaSvgAssetLoader(new SkiaModel(new SKSvgSettings()));
@@ -76,7 +77,7 @@ Each row draws `M` and `MMMM` in one style and reports the ratio of the horizont
 the ink. Glyphs that advance score about four; glyphs painted on top of each other score
 about one.
 
-### Against Svg.Skia 5.2.1 and against `main` at `9ccef3e` — identical
+### Against Svg.Skia 5.2.1 and against `master` at `9ccef3e` — identical
 
 ```
 case                                 M    MMMM   ratio   verdict
@@ -164,7 +165,7 @@ send that separately if it is wanted.
 
 ## Versions
 
-- Svg.Skia `5.2.1`, and `main` at `9ccef3e` — same behaviour
+- Svg.Skia `5.2.1`, and `master` at `9ccef3e` — same behaviour
 - SkiaSharp `4.148.0`, `SkiaSharp.NativeAssets.WebAssembly` `4.148.0`
 - HarfBuzzSharp `14.2.0`, `HarfBuzzSharp.NativeAssets.WebAssembly` `14.2.0`
 - .NET SDK `10.0.302`, `net10.0-browser` / `browser-wasm`
