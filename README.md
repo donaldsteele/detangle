@@ -41,6 +41,13 @@ dotnet test Detangle.slnx
 dotnet run --project src/Detangle.Desktop -- samples
 ```
 
+A self-contained single-file build needs a runtime identifier, which is what switches
+those publish settings on:
+
+```
+dotnet publish src/Detangle.Desktop -c Release -r win-x64
+```
+
 Publishing a vault needs no window:
 
 ```

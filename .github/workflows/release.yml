@@ -77,6 +77,13 @@ jobs:
             runner: macos-latest
             channel: osx-arm64
 
+    # Secrets cannot be read from a step's own "if", and a step's own env is not
+    # available there either - so the two that gate optional signing are lifted to the
+    # job, where the env context can see them.
+    env:
+      AZURE_VAULT_URL: ${{ secrets.AZURE_VAULT_URL }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -103,7 +110,7 @@ jobs:
       # --- Windows -------------------------------------------------------------------
 
       - name: Sign the Windows build
-        if: startsWith(matrix.rid, 'win') && secrets.AZURE_VAULT_URL != ''
+        if: startsWith(matrix.rid, 'win') && env.AZURE_VAULT_URL != ''
         shell: pwsh
         run: |
           # Azure Trusted Signing. SmartScreen reputation accrues per certificate, so an
@@ -193,7 +200,7 @@ jobs:
       # --- macOS ---------------------------------------------------------------------
 
       - name: Import the signing certificate
-        if: startsWith(matrix.rid, 'osx') && secrets.APPLE_CERTIFICATE_P12 != ''
+        if: startsWith(matrix.rid, 'osx') && env.APPLE_CERTIFICATE != ''
         uses: apple-actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
