@@ -330,7 +330,21 @@ public static class FrontmatterReader
             || ReadBoolean(values, "publish") == false
             || ReadBoolean(values, "published") == false;
 
+        // Every recognised key has to be read before the leftovers are collected: Collect
+        // is what marks a key as claimed, so gathering "extra" first would leave every
+        // field below in it as well, and the properties card would list "type" twice.
+        List<string> aliases = [.. Collect(AliasKeys).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)];
+        string? id = First(IdKeys);
+        string? type = First(TypeKeys);
+        string? status = First(StatusKeys);
+        DateTimeOffset? created = ParseTimestamp(First(CreatedKeys));
+        DateTimeOffset? updated = ParseTimestamp(First(UpdatedKeys));
+        List<string> references = [.. Collect(ReferenceKeys).Where(v => v.Length > 0)];
+        List<string> authors = [.. Collect(AuthorKeys).Where(v => v.Length > 0)];
+        double? order = ParseNumber(First(OrderKeys));
+
         var extra = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (KeyValuePair<string, List<string>> entry in values)
         {
             if (!claimed.Contains(entry.Key) && entry.Value.Count > 0)
@@ -343,19 +357,19 @@ public static class FrontmatterReader
         {
             Kind = kind,
             Title = values.TryGetValue("title", out List<string>? title) ? title.FirstOrDefault() : null,
-            Aliases = [.. Collect(AliasKeys).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)],
+            Aliases = aliases,
             Tags = tags,
-            Id = First(IdKeys),
+            Id = id,
             Slug = values.TryGetValue("slug", out List<string>? slug) ? slug.FirstOrDefault() : null,
-            Type = First(TypeKeys),
-            Status = First(StatusKeys),
-            Created = ParseTimestamp(First(CreatedKeys)),
-            Updated = ParseTimestamp(First(UpdatedKeys)),
-            References = [.. Collect(ReferenceKeys).Where(v => v.Length > 0)],
-            Authors = [.. Collect(AuthorKeys).Where(v => v.Length > 0)],
+            Type = type,
+            Status = status,
+            Created = created,
+            Updated = updated,
+            References = references,
+            Authors = authors,
             Url = values.TryGetValue("url", out List<string>? url) ? url.FirstOrDefault() : null,
             IsDraft = isDraft,
-            Order = ParseNumber(First(OrderKeys)),
+            Order = order,
             CssClasses = values.TryGetValue("cssclasses", out List<string>? css) ? css : [],
             Extra = extra,
             Diagnostics = diagnostics,

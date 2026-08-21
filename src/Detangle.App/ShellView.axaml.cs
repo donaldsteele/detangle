@@ -69,6 +69,10 @@ public partial class ShellView : UserControl
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.AnchorRequested += (_, anchor) => ScrollToAnchor(anchor);
 
+        // The shell can arrive already set to a palette — the WASM demo starts dark —
+        // and that happens before there is a view to hear the change.
+        ApplyTheme(viewModel.IsDarkTheme);
+
         Render();
     }
 
@@ -81,8 +85,7 @@ public partial class ShellView : UserControl
                 break;
 
             case nameof(ShellViewModel.IsDarkTheme):
-                _renderer = CreateRenderer(ViewModel?.IsDarkTheme ?? false);
-                ThemeScope.RequestedThemeVariant = ViewModel?.IsDarkTheme == true ? ThemeVariant.Dark : ThemeVariant.Light;
+                ApplyTheme(ViewModel?.IsDarkTheme ?? false);
                 _renderedPath = null;
                 Render();
                 ReplaceGraphCanvas();
@@ -151,6 +154,13 @@ public partial class ShellView : UserControl
             _ => $"{node.Id} · {node.InboundCount} in · {node.OutboundCount} out"
                 + (node.IsOrphan ? " · orphan" : string.Empty),
         };
+    }
+
+    /// <summary>Switches the control palette and the document renderer together.</summary>
+    private void ApplyTheme(bool isDark)
+    {
+        _renderer = CreateRenderer(isDark);
+        ThemeScope.RequestedThemeVariant = isDark ? ThemeVariant.Dark : ThemeVariant.Light;
     }
 
     private DocumentRenderer CreateRenderer(bool isDark)

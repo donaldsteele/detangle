@@ -26,7 +26,9 @@
   </UserControl.Styles>
 
   <ThemeVariantScope Name="ThemeScope">
-  <Grid>
+  <!-- The view paints its own background: a desktop window supplies one, and a
+       browser tab does not, so without this the host page shows through. -->
+  <Grid Background="{DynamicResource ThemeBackgroundBrush}">
     <DockPanel>
 
       <!-- Toolbar: vault, history, theme, palette. -->

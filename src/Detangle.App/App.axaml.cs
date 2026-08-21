@@ -32,6 +32,12 @@ public partial class DetangleApp : Application
     /// </summary>
     public static string? StartupVault { get; set; }
 
+    /// <summary>
+    /// Which palette to open in. The WASM demo starts dark because the page around it is
+    /// dark; the desktop head leaves it alone and follows its own default.
+    /// </summary>
+    public static bool StartInDarkTheme { get; set; }
+
     public override void OnFrameworkInitializationCompleted()
     {
         switch (ApplicationLifetime)
@@ -63,7 +69,7 @@ public partial class DetangleApp : Application
 
     private static ShellViewModel CreateShell()
     {
-        var viewModel = new ShellViewModel { UpdateService = UpdateService };
+        var viewModel = new ShellViewModel { UpdateService = UpdateService, IsDarkTheme = StartInDarkTheme };
 
         if (StartupVault is { Length: > 0 } vault)
         {

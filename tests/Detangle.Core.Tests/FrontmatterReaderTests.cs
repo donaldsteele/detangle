@@ -145,4 +145,39 @@ public class FrontmatterReaderTests
         Assert.Equal(FrontmatterKind.None, frontmatter.Kind);
         Assert.Equal(0, frontmatter.LineCount);
     }
+
+    [Fact]
+    public void ARecognisedKeyIsNotAlsoAnExtraKey()
+    {
+        DocumentFrontmatter frontmatter = FrontmatterReader.Read(
+            "---\ntitle: A Page\ntype: concept\nstatus: reviewed\ncreated: 2026-01-02\n"
+            + "updated: 2026-08-20\nid: abc-123\nauthors: [Vaswani]\nrelated:\n  - other\n"
+            + "order: 3\naliases: [Another Name]\ntags: [llm]\nmood: cheerful\n---\n\n# Body\n");
+
+        // Everything the key union claims has to be gone from Extra, or the properties
+        // card lists the same key twice — once typed and once raw.
+        Assert.Equal(["mood"], frontmatter.Extra.Keys);
+
+        Assert.Equal("concept", frontmatter.Type);
+        Assert.Equal("reviewed", frontmatter.Status);
+        Assert.Equal("abc-123", frontmatter.Id);
+        Assert.Equal(3, frontmatter.Order);
+        Assert.NotNull(frontmatter.Created);
+        Assert.NotNull(frontmatter.Updated);
+        Assert.Equal(["Vaswani"], frontmatter.Authors);
+        Assert.Equal(["other"], frontmatter.References);
+        Assert.Equal(["Another Name"], frontmatter.Aliases);
+    }
+
+    [Fact]
+    public void TheAlternativeSpellingsAreClaimedToo()
+    {
+        DocumentFrontmatter frontmatter = FrontmatterReader.Read(
+            "---\nkind: paper\nstate: published\nmodified: 2026-08-20\nuid: xyz\n"
+            + "weight: 2\naka: [Nickname]\nsee-also:\n  - other\nauthor: Vaswani\n---\n\n# Body\n");
+
+        Assert.Empty(frontmatter.Extra);
+        Assert.Equal("paper", frontmatter.Type);
+        Assert.Equal("published", frontmatter.Status);
+    }
 }
