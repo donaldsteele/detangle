@@ -37,3 +37,6 @@ site/**/*.wasm.br
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Scratch screenshots and manual-testing artefacts.
+testing/

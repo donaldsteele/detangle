@@ -1,0 +1,68 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The reader's surface. Everything is defined here so a colour appears exactly once and
+    both palettes stay in step.
+
+    The five resolution hues are the only saturated colour in the application, and they
+    are never used as a fill - only as small marks and text. That restraint is what lets
+    them carry meaning: when a page shows red, it means something.
+  -->
+
+  <ResourceDictionary.ThemeDictionaries>
+
+    <ResourceDictionary x:Key="Dark">
+      <Color x:Key="InkColor">#0b0d12</Color>
+      <SolidColorBrush x:Key="Ink" Color="#0b0d12" />
+      <SolidColorBrush x:Key="Shell" Color="#101319" />
+      <SolidColorBrush x:Key="Panel" Color="#161b23" />
+      <SolidColorBrush x:Key="Raised" Color="#1e242e" />
+      <SolidColorBrush x:Key="Line" Color="#242b36" />
+      <SolidColorBrush x:Key="LineStrong" Color="#333c4a" />
+      <SolidColorBrush x:Key="Text" Color="#e7eaf0" />
+      <SolidColorBrush x:Key="Dim" Color="#8b94a5" />
+      <SolidColorBrush x:Key="Faint" Color="#5b6474" />
+      <SolidColorBrush x:Key="Accent" Color="#e0a33a" />
+      <SolidColorBrush x:Key="AccentSoft" Color="#3a2e18" />
+      <SolidColorBrush x:Key="Exact" Color="#46b96a" />
+      <SolidColorBrush x:Key="Normalized" Color="#e0a33a" />
+      <SolidColorBrush x:Key="Heuristic" Color="#a371f7" />
+      <SolidColorBrush x:Key="Ambiguous" Color="#d99a2b" />
+      <SolidColorBrush x:Key="Broken" Color="#f2635a" />
+      <SolidColorBrush x:Key="Selection" Color="#1d2b3f" />
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Light">
+      <Color x:Key="InkColor">#ffffff</Color>
+      <SolidColorBrush x:Key="Ink" Color="#ffffff" />
+      <SolidColorBrush x:Key="Shell" Color="#f7f8fa" />
+      <SolidColorBrush x:Key="Panel" Color="#f1f3f6" />
+      <SolidColorBrush x:Key="Raised" Color="#e6eaf0" />
+      <SolidColorBrush x:Key="Line" Color="#dfe3ea" />
+      <SolidColorBrush x:Key="LineStrong" Color="#c3cad5" />
+      <SolidColorBrush x:Key="Text" Color="#12151b" />
+      <SolidColorBrush x:Key="Dim" Color="#586173" />
+      <SolidColorBrush x:Key="Faint" Color="#858e9f" />
+      <SolidColorBrush x:Key="Accent" Color="#a56b0d" />
+      <SolidColorBrush x:Key="AccentSoft" Color="#faf0dc" />
+      <SolidColorBrush x:Key="Exact" Color="#1a7f37" />
+      <SolidColorBrush x:Key="Normalized" Color="#a56b0d" />
+      <SolidColorBrush x:Key="Heuristic" Color="#7b46d4" />
+      <SolidColorBrush x:Key="Ambiguous" Color="#9a6700" />
+      <SolidColorBrush x:Key="Broken" Color="#c0392b" />
+      <SolidColorBrush x:Key="Selection" Color="#dbe6f5" />
+    </ResourceDictionary>
+
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!--
+    Inter by resource URI, not by name. The WebAssembly build has no system fonts to
+    search, so a family name resolves to nothing and falls through to the runtime's
+    embedded default - which is monospaced, and set every page of prose in code type.
+    The URI addresses the copy compiled into the application, so it resolves everywhere.
+  -->
+  <FontFamily x:Key="UiFont">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
+  <FontFamily x:Key="IdentifierFont">Cascadia Mono, JetBrains Mono, Menlo, Consolas, monospace</FontFamily>
+
+</ResourceDictionary>

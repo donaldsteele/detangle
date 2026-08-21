@@ -519,7 +519,9 @@ public sealed class DocumentRenderer
 
         for (int column = 0; column < System.Math.Max(1, table.Alignments.Count); column++)
         {
-            grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            // Star, not Auto: a table sized to its content leaves a ragged edge against
+            // the reading measure, and a wiki's tables are mostly prose.
+            grid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1, GridUnitType.Star)));
         }
 
         for (int rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)

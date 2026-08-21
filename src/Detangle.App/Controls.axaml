@@ -1,0 +1,357 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The reader's control surface. Fluent's defaults are built for forms; this is a
+    reading application, so chrome recedes and the document is the only thing with
+    contrast. Buttons are flat until pointed at, panels are separated by a single
+    hairline rather than by shadow, and nothing animates except a 120ms colour change.
+  -->
+
+  <Design.PreviewWith>
+    <Border Padding="20" Background="#101319">
+      <StackPanel Spacing="10">
+        <TextBlock Classes="label" Text="Section" />
+        <TextBlock Text="Body text" />
+        <TextBlock Classes="identifier" Text="wiki/getting-started.md" />
+        <Button Content="Open" />
+      </StackPanel>
+    </Border>
+  </Design.PreviewWith>
+
+  <!-- Typography -->
+
+  <Style Selector="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+  </Style>
+
+  <!-- A rail heading. Uppercase and tracked so it reads as furniture, not content. -->
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.09" />
+    <Setter Property="Foreground" Value="{DynamicResource Faint}" />
+  </Style>
+
+  <Style Selector="TextBlock.secondary">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+  </Style>
+
+  <!--
+    Anything that is an address rather than prose: a path, a link target, a rule name.
+    Giving identifiers their own face and tracking is the one typographic idea in this
+    application, and it is true to the subject - half of what a wiki reader shows you is
+    not language, it is a location.
+  -->
+  <Style Selector="TextBlock.identifier">
+    <Setter Property="FontFamily" Value="{DynamicResource IdentifierFont}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="LetterSpacing" Value="0.02" />
+    <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+  </Style>
+
+  <!-- Buttons -->
+
+  <Style Selector="Button">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="11,6" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="Button:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Raised}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineStrong}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="Button:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Line}" />
+  </Style>
+
+  <Style Selector="Button:disabled /template/ ContentPresenter">
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Faint}" />
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <!-- The one filled button: the action that opens a vault. -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource Accent}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="Foreground" Value="#171106" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Accent}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="TextElement.Foreground" Value="#171106" />
+    <Setter Property="Opacity" Value="0.88" />
+  </Style>
+
+  <!--
+    Icon buttons: square, borderless, the glyph does the talking. Buttons and toggles are
+    listed separately because Avalonia selectors match the concrete type, and a ToggleButton
+    is not a Button - matching only one of them left the graph and editor controls as two
+    empty rectangles in the toolbar.
+  -->
+  <Style Selector="ToggleButton.icon">
+    <Setter Property="Padding" Value="7" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="7" />
+  </Style>
+
+  <Style Selector="ToggleButton.icon > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Dim}" />
+    <Setter Property="StrokeThickness" Value="1.6" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Width" Value="17" />
+    <Setter Property="Height" Value="17" />
+    <Setter Property="Stretch" Value="Uniform" />
+  </Style>
+
+  <Style Selector="ToggleButton.icon:pointerover > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="ToggleButton.icon:checked > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="Button.icon">
+    <Setter Property="Padding" Value="7" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="7" />
+  </Style>
+
+  <Style Selector="Button.icon > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Dim}" />
+    <Setter Property="StrokeThickness" Value="1.6" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Width" Value="17" />
+    <Setter Property="Height" Value="17" />
+    <Setter Property="Stretch" Value="Uniform" />
+  </Style>
+
+  <Style Selector="Button.icon:pointerover > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="Button.icon:disabled > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Faint}" />
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+
+  <!-- Toggles -->
+
+  <Style Selector="ToggleButton">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="11,6" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+  </Style>
+
+  <Style Selector="ToggleButton:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Raised}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="ToggleButton:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <!--
+    The navigation rail. A vertical strip of icons rather than a row of tabs: four text
+    tabs do not fit across a 250px panel, and wrapping them onto two lines was the
+    ugliest thing in the previous build.
+  -->
+  <Style Selector="ToggleButton.rail">
+    <Setter Property="Width" Value="44" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="ToggleButton.rail > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Faint}" />
+    <Setter Property="StrokeThickness" Value="1.6" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Width" Value="19" />
+    <Setter Property="Height" Value="19" />
+    <Setter Property="Stretch" Value="Uniform" />
+  </Style>
+
+  <Style Selector="ToggleButton.rail:pointerover > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="ToggleButton.rail:checked > Path">
+    <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="ToggleButton.rail:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+
+  <!-- Text entry -->
+
+  <Style Selector="TextBox">
+    <Setter Property="FontFamily" Value="{DynamicResource IdentifierFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="9,6" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Background" Value="{DynamicResource Ink}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource Selection}" />
+  </Style>
+
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <!-- Lists and trees -->
+
+  <Style Selector="ListBox, TreeView">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="4,2" />
+  </Style>
+
+  <Style Selector="ListBoxItem, TreeViewItem">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Raised}" />
+  </Style>
+
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Selection}" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource Selection}" />
+  </Style>
+
+  <!-- Tabs: an underline, not a box. -->
+
+  <Style Selector="TabControl">
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="TabItem">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Faint}" />
+  </Style>
+
+  <Style Selector="TabItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TabItem:pointerover /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="TabItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!--
+    The icon rail's tabs. The header is a glyph on a 44px square, and the selected one
+    grows an accent edge rather than a filled box, so the rail stays quiet.
+  -->
+  <Style Selector="TabItem.rail">
+    <Setter Property="Width" Value="44" />
+    <Setter Property="Height" Value="44" />
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TabItem.rail Path">
+    <Setter Property="Stroke" Value="{DynamicResource Faint}" />
+    <Setter Property="StrokeThickness" Value="1.6" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Width" Value="19" />
+    <Setter Property="Height" Value="19" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TabItem.rail:pointerover Path">
+    <Setter Property="Stroke" Value="{DynamicResource Text}" />
+  </Style>
+
+  <Style Selector="TabItem.rail:selected Path">
+    <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="TabItem.rail:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource Raised}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="BorderThickness" Value="2,0,0,0" />
+  </Style>
+
+  <!-- Splitters are a hairline until you reach for them. -->
+
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Width" Value="5" />
+  </Style>
+
+  <Style Selector="GridSplitter:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="ScrollBar">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="CheckBox">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+  </Style>
+
+</Styles>

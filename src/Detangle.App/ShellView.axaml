@@ -11,300 +11,381 @@
              x:DataType="app:ShellViewModel"
              x:CompileBindings="True">
 
-
-  <UserControl.Styles>
-    <Style Selector="TextBlock.rail-heading">
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Opacity" Value="0.6" />
-      <Setter Property="Margin" Value="0,0,0,4" />
-    </Style>
-    <Style Selector="TextBlock.secondary">
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="Opacity" Value="0.6" />
-    </Style>
-  </UserControl.Styles>
-
   <ThemeVariantScope Name="ThemeScope">
-  <!-- The view paints its own background: a desktop window supplies one, and a
-       browser tab does not, so without this the host page shows through. -->
-  <Grid Background="{DynamicResource ThemeBackgroundBrush}">
-    <DockPanel>
+    <!-- The view paints its own background: a desktop window supplies one, and a browser
+         tab does not, so without this the host page shows through. -->
+    <Grid Background="{DynamicResource Shell}">
+      <DockPanel>
 
-      <!-- Toolbar: vault, history, theme, palette. -->
-      <Border DockPanel.Dock="Top" Padding="10,8" BorderThickness="0,0,0,1" BorderBrush="#33808080">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
-          <Button Grid.Column="0" Name="BackButton" Content="←" ToolTip.Tip="Back (Alt+Left)"
-                  Command="{Binding GoBackCommand}" Margin="0,0,4,0" />
-          <Button Grid.Column="1" Name="ForwardButton" Content="→" ToolTip.Tip="Forward (Alt+Right)"
-                  Command="{Binding GoForwardCommand}" Margin="0,0,10,0" />
-          <TextBlock Grid.Column="2" Text="Detangle" FontWeight="SemiBold"
-                     VerticalAlignment="Center" Margin="0,0,12,0" />
-          <TextBox Grid.Column="3" Name="VaultPathBox" Text="{Binding VaultPath}"
-                   PlaceholderText="Path to a vault" />
-          <Button Grid.Column="4" Name="OpenButton" Content="Open" Margin="8,0,0,0" />
-          <ToggleButton Grid.Column="5" Content="Graph" ToolTip.Tip="Graph view (Ctrl+G)"
-                        IsChecked="{Binding IsGraphVisible}" Margin="6,0,0,0" />
-          <ToggleButton Grid.Column="6" Content="Edit" ToolTip.Tip="Split editor (Ctrl+E)"
-                        IsChecked="{Binding IsEditing}" Command="{Binding ToggleEditCommand}"
-                        Margin="6,0,0,0" />
-          <Button Grid.Column="7" Content="Export" Margin="6,0,0,0">
-            <Button.Flyout>
-              <MenuFlyout>
-                <MenuItem Name="ExportSiteItem" Header="Static site…"
-                          ToolTip.Tip="One HTML file per page, with navigation and a prebuilt search index" />
-                <MenuItem Name="ExportSingleItem" Header="Single HTML file…" />
-                <MenuItem Name="ExportPageItem" Header="This page as HTML…" />
-                <MenuItem Name="ExportPdfItem" Header="PDF…" />
-                <Separator />
-                <MenuItem Name="NormalizeItem" Header="Normalize links in place"
-                          ToolTip.Tip="Rewrites every link in the vault to its canonical target" />
-              </MenuFlyout>
-            </Button.Flyout>
-          </Button>
-          <Button Grid.Column="8" Content="◐" ToolTip.Tip="Toggle theme"
-                  Command="{Binding ToggleThemeCommand}" Margin="6,0,0,0" />
-        </Grid>
-      </Border>
+        <!-- Toolbar. The vault path is the only field here, so it gets the room. -->
+        <Border DockPanel.Dock="Top" Padding="10,9" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource Line}">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
 
-      <!-- Status bar: the section 5.5 counters. -->
-      <Border DockPanel.Dock="Bottom" Padding="10,6" BorderThickness="0,1,0,0" BorderBrush="#33808080">
-        <Grid ColumnDefinitions="*,Auto,Auto">
-          <TextBlock Grid.Column="0" Text="{Binding Status}" FontSize="12" Opacity="0.75"
-                     TextTrimming="CharacterEllipsis" />
-          <Button Grid.Column="1" Content="{Binding UpdateSummary}" IsVisible="{Binding HasUpdate}"
-                  Command="{Binding InstallUpdateCommand}" FontSize="11" Padding="8,2" Margin="0,0,10,0"
-                  ToolTip.Tip="Downloads the update and restarts into it" />
-          <TextBlock Grid.Column="2" Text="{Binding LinkSummary}" FontSize="12" Opacity="0.75" />
-        </Grid>
-      </Border>
+            <Button Grid.Column="0" Name="BackButton" Classes="icon" ToolTip.Tip="Back (Alt+Left)"
+                    Command="{Binding GoBackCommand}">
+              <Path Data="{StaticResource IconBack}" />
+            </Button>
 
-      <Grid ColumnDefinitions="270,Auto,*,Auto,300">
+            <Button Grid.Column="1" Name="ForwardButton" Classes="icon" ToolTip.Tip="Forward (Alt+Right)"
+                    Command="{Binding GoForwardCommand}" Margin="0,0,8,0">
+              <Path Data="{StaticResource IconForward}" />
+            </Button>
 
-        <!-- Left rail: files, search, Link Doctor, tags. -->
-        <TabControl Grid.Column="0" Name="LeftRail">
-          <TabItem Header="Files">
-            <DockPanel>
-              <TextBlock DockPanel.Dock="Top" Classes="rail-heading" Margin="8,6,8,4"
-                         Text="{Binding NavigationSourceName, StringFormat='FROM {0}'}" />
-              <TreeView Name="NavigationTree" ItemsSource="{Binding Navigation}">
+            <!-- The runs sit on one line because XAML keeps the whitespace between them,
+                 and "de tangle" is not the wordmark. -->
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="2,0,14,0"
+                       FontSize="14" FontWeight="Bold" LetterSpacing="-0.02"><Run Text="de" Foreground="{DynamicResource Text}" /><Run Text="tangle" Foreground="{DynamicResource Accent}" /></TextBlock>
+
+            <TextBox Grid.Column="3" Name="VaultPathBox" Text="{Binding VaultPath}"
+                     PlaceholderText="Path to a folder of markdown" />
+
+            <Button Grid.Column="4" Name="OpenButton" Classes="primary" Content="Open vault"
+                    Margin="8,0,10,0" />
+
+            <ToggleButton Grid.Column="5" Classes="icon" ToolTip.Tip="Graph view (Ctrl+G)"
+                          IsChecked="{Binding IsGraphVisible}" Padding="7">
+              <Path Data="{StaticResource IconGraph}" />
+            </ToggleButton>
+
+            <ToggleButton Grid.Column="6" Classes="icon" ToolTip.Tip="Split editor (Ctrl+E)"
+                          IsChecked="{Binding IsEditing}" Command="{Binding ToggleEditCommand}" Padding="7">
+              <Path Data="{StaticResource IconEdit}" />
+            </ToggleButton>
+
+            <Button Grid.Column="7" Classes="icon" ToolTip.Tip="Export">
+              <Path Data="{StaticResource IconExport}" />
+              <Button.Flyout>
+                <MenuFlyout>
+                  <MenuItem Name="ExportSiteItem" Header="Static site…"
+                            ToolTip.Tip="One HTML file per page, with navigation and a prebuilt search index" />
+                  <MenuItem Name="ExportSingleItem" Header="Single HTML file…" />
+                  <MenuItem Name="ExportPageItem" Header="This page as HTML…" />
+                  <MenuItem Name="ExportPdfItem" Header="PDF…" />
+                  <Separator />
+                  <MenuItem Name="NormalizeItem" Header="Normalize links in place"
+                            ToolTip.Tip="Rewrites every link in the vault to its canonical target" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+
+            <Button Grid.Column="8" Classes="icon" ToolTip.Tip="Command palette (Ctrl+K)"
+                    Command="{Binding TogglePaletteCommand}">
+              <Path Data="{StaticResource IconPalette}" />
+            </Button>
+
+            <Button Grid.Column="9" Classes="icon" ToolTip.Tip="Switch theme"
+                    Command="{Binding ToggleThemeCommand}">
+              <Path Data="{StaticResource IconTheme}" />
+            </Button>
+          </Grid>
+        </Border>
+
+        <!-- Status bar. The counters are the product's own report card. -->
+        <Border DockPanel.Dock="Bottom" Padding="12,7" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource Line}" Background="{DynamicResource Panel}">
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBlock Grid.Column="0" Classes="identifier" Text="{Binding Status}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <Button Grid.Column="1" Content="{Binding UpdateSummary}" IsVisible="{Binding HasUpdate}"
+                    Command="{Binding InstallUpdateCommand}" FontSize="11" Padding="9,3" Margin="12,0"
+                    ToolTip.Tip="Downloads the update and restarts into it" />
+            <TextBlock Grid.Column="2" Classes="identifier" Text="{Binding LinkSummary}"
+                       VerticalAlignment="Center" Margin="12,0,0,0" />
+          </Grid>
+        </Border>
+
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto,300">
+
+          <!--
+            The navigation rail. Four icons down the side rather than four text tabs
+            across a narrow panel, which never fitted and wrapped onto two lines.
+          -->
+          <TabControl Grid.Column="0" Name="LeftRail" TabStripPlacement="Left"
+                      Background="{DynamicResource Panel}" BorderThickness="0,0,1,0"
+                      BorderBrush="{DynamicResource Line}" Width="294">
+
+            <TabItem Classes="rail" ToolTip.Tip="Files">
+              <TabItem.Header>
+                <Path Data="{StaticResource IconFiles}" />
+              </TabItem.Header>
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Classes="label" Margin="14,14,14,8"
+                           Text="{Binding NavigationSourceName, StringFormat='FROM {0}'}" />
+                <TreeView Name="NavigationTree" ItemsSource="{Binding Navigation}">
+                  <TreeView.ItemTemplate>
+                    <TreeDataTemplate x:DataType="vault:NavigationNode" ItemsSource="{Binding Children}">
+                      <TextBlock Text="{Binding Title}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                    </TreeDataTemplate>
+                  </TreeView.ItemTemplate>
+                </TreeView>
+              </DockPanel>
+            </TabItem>
+
+            <TabItem Classes="rail" ToolTip.Tip="Search">
+              <TabItem.Header>
+                <Path Data="{StaticResource IconSearch}" />
+              </TabItem.Header>
+              <DockPanel>
+                <TextBox DockPanel.Dock="Top" Name="SearchBox" Text="{Binding SearchQuery}"
+                         PlaceholderText="text, type:concept, tag:llm, path:wiki/"
+                         Margin="12,14,12,6" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding SearchSummary}" Classes="label"
+                           Margin="14,0,14,8" />
+                <ListBox Name="SearchList" ItemsSource="{Binding SearchResults}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="search:SearchHit">
+                      <StackPanel Spacing="3">
+                        <TextBlock Text="{Binding Document.DisplayName}" FontSize="12.5"
+                                   Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Heading}" Classes="identifier"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Snippet}" Classes="secondary"
+                                   TextWrapping="Wrap" MaxLines="2" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+            </TabItem>
+
+            <TabItem Classes="rail" ToolTip.Tip="Link Doctor">
+              <TabItem.Header>
+                <Path Data="{StaticResource IconDoctor}" />
+              </TabItem.Header>
+              <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="12,14,12,8" Spacing="6">
+                  <Button Name="FixAllButton" Content="Fix all safe" HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Rewrites links that resolved by rules 4-8 to their canonical target" />
+                  <Button Name="CreateNoteButton" Content="Create the missing note"
+                          HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Writes the page the selected broken link was pointing at" />
+                </StackPanel>
+                <ListBox Name="FindingList" ItemsSource="{Binding Findings}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="diagnostics:Finding">
+                      <StackPanel Spacing="3">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                          <Border Width="3" Height="12" CornerRadius="2" VerticalAlignment="Center"
+                                  Background="{Binding Severity, Converter={x:Static app:SeverityBrushConverter.Instance}}" />
+                          <TextBlock Text="{Binding Kind}" FontSize="12.5"
+                                     Foreground="{DynamicResource Text}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Document.RelativePath}" Classes="identifier"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Message}" Classes="secondary"
+                                   TextWrapping="Wrap" MaxLines="3" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+            </TabItem>
+
+            <TabItem Classes="rail" ToolTip.Tip="Tags">
+              <TabItem.Header>
+                <Path Data="{StaticResource IconTags}" />
+              </TabItem.Header>
+              <TreeView Name="TagTree" ItemsSource="{Binding Tags}" Margin="0,10,0,0">
                 <TreeView.ItemTemplate>
-                  <TreeDataTemplate x:DataType="vault:NavigationNode" ItemsSource="{Binding Children}">
-                    <TextBlock Text="{Binding Title}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                  <TreeDataTemplate x:DataType="graph:TagNode" ItemsSource="{Binding Children}">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0" Text="{Binding Segment}" FontSize="12.5" />
+                      <TextBlock Grid.Column="1" Text="{Binding TotalCount}" Classes="label"
+                                 VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </Grid>
                   </TreeDataTemplate>
                 </TreeView.ItemTemplate>
               </TreeView>
-            </DockPanel>
-          </TabItem>
+            </TabItem>
+          </TabControl>
 
-          <TabItem Header="Search">
-            <DockPanel>
-              <TextBox DockPanel.Dock="Top" Name="SearchBox" Text="{Binding SearchQuery}"
-                       PlaceholderText="text, type:concept, tag:llm, path:wiki/, updated&gt;2026-06-01"
-                       Margin="6" />
-              <TextBlock DockPanel.Dock="Top" Text="{Binding SearchSummary}" Classes="secondary"
-                         Margin="8,0,8,6" />
-              <ListBox Name="SearchList" ItemsSource="{Binding SearchResults}">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="search:SearchHit">
-                    <StackPanel Spacing="2">
-                      <TextBlock Text="{Binding Document.DisplayName}" FontSize="12" />
-                      <TextBlock Text="{Binding Heading}" Classes="secondary" />
-                      <TextBlock Text="{Binding Snippet}" Classes="secondary" TextWrapping="Wrap" MaxLines="2" />
-                    </StackPanel>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-            </DockPanel>
-          </TabItem>
+          <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
 
-          <TabItem Header="Doctor">
-            <DockPanel>
-              <StackPanel DockPanel.Dock="Top" Margin="6" Spacing="4">
-                <Button Name="FixAllButton" Content="Fix all safe" HorizontalAlignment="Stretch"
-                        ToolTip.Tip="Rewrites links that resolved by rules 4-8 to their canonical target" />
-                <Button Name="CreateNoteButton" Content="Create the missing note" HorizontalAlignment="Stretch"
-                        ToolTip.Tip="Writes the page the selected broken link was pointing at, from the vault's template" />
-              </StackPanel>
-              <ListBox Name="FindingList" ItemsSource="{Binding Findings}">
+          <!-- Centre: the document, or the graph over the whole vault. -->
+          <Grid Grid.Column="2" Background="{DynamicResource Ink}">
+            <DockPanel IsVisible="{Binding !IsGraphVisible}">
+
+              <ListBox DockPanel.Dock="Top" Name="TabStrip" ItemsSource="{Binding Tabs}"
+                       SelectedItem="{Binding ActiveTab}" Padding="6,6,6,0"
+                       Background="{DynamicResource Shell}"
+                       ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
                 <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="diagnostics:Finding">
-                    <StackPanel Spacing="2">
-                      <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="{Binding Severity}" Classes="secondary" />
-                        <TextBlock Text="{Binding Kind}" FontSize="12" />
-                      </StackPanel>
-                      <TextBlock Text="{Binding Document.RelativePath}" Classes="secondary"
+                  <DataTemplate x:DataType="app:DocumentTab">
+                    <Grid ColumnDefinitions="Auto,Auto" ToolTip.Tip="{Binding Path}">
+                      <TextBlock Grid.Column="0" Text="{Binding Title}" FontSize="12.5"
+                                 VerticalAlignment="Center" MaxWidth="180"
                                  TextTrimming="CharacterEllipsis" />
-                      <TextBlock Text="{Binding Message}" FontSize="11" TextWrapping="Wrap" MaxLines="3" />
+                      <Button Grid.Column="1" Classes="icon" Padding="4" Margin="8,0,-4,0"
+                              Click="OnCloseTabClick" ToolTip.Tip="Close">
+                        <Path Data="{StaticResource IconClose}" Width="11" Height="11" />
+                      </Button>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+
+              <!--
+                The link ledger: how this page's links resolved, in proportion, before a
+                word of it has been read. The one place colour is allowed to shout.
+              -->
+              <app:LinkLedger DockPanel.Dock="Top" Name="Ledger" />
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="{Binding IsEditing, Converter={x:Static app:EditorColumnConverter.Instance}}" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0" IsVisible="{Binding IsEditing}"
+                           Background="{DynamicResource Shell}">
+                  <Border DockPanel.Dock="Top" Padding="10,7" BorderThickness="0,0,0,1"
+                          BorderBrush="{DynamicResource Line}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Name="SaveButton" Classes="icon" ToolTip.Tip="Save (Ctrl+S)">
+                        <Path Data="{StaticResource IconSave}" />
+                      </Button>
+                      <Button Name="ReloadButton" Classes="icon"
+                              ToolTip.Tip="Discard edits and reread the file">
+                        <Path Data="{StaticResource IconReload}" />
+                      </Button>
+                      <TextBlock Text="Unsaved changes" Classes="label" VerticalAlignment="Center"
+                                 Foreground="{DynamicResource Accent}"
+                                 IsVisible="{Binding HasUnsavedChanges}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Name="ConflictBanner" DockPanel.Dock="Top" IsVisible="False"
+                          Background="{DynamicResource Raised}" Padding="12,9"
+                          BorderThickness="0,0,0,2" BorderBrush="{DynamicResource Broken}">
+                    <TextBlock TextWrapping="Wrap" FontSize="12"
+                               Text="This file changed on disk since it was opened. Reload to take that version, or save again to keep yours." />
+                  </Border>
+                  <edit:TextEditor Name="Editor" ShowLineNumbers="True" WordWrap="True"
+                                   Background="{DynamicResource Ink}"
+                                   FontFamily="{DynamicResource IdentifierFont}" FontSize="13" />
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" ResizeDirection="Columns"
+                              IsVisible="{Binding IsEditing}" />
+
+                <ScrollViewer Grid.Column="2" Name="DocumentScroller">
+                  <!-- A reading measure, centred. Prose set the full width of a maximised
+                       window is not prose anybody finishes. -->
+                  <ContentControl Name="DocumentHost" MaxWidth="760" HorizontalAlignment="Center"
+                                  Margin="40,32,40,80" />
+                </ScrollViewer>
+              </Grid>
+            </DockPanel>
+
+            <!-- Graph view: filters above a canvas that draws the whole vault at once. -->
+            <DockPanel IsVisible="{Binding IsGraphVisible}">
+              <Border DockPanel.Dock="Top" Padding="12,9" BorderThickness="0,0,0,1"
+                      BorderBrush="{DynamicResource Line}" Background="{DynamicResource Shell}">
+                <StackPanel Spacing="8">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox Text="{Binding GraphTypeFilter}" PlaceholderText="type" Width="110" />
+                    <TextBox Text="{Binding GraphTagFilter}" PlaceholderText="tag" Width="110" />
+                    <TextBox Text="{Binding GraphFolderFilter}" PlaceholderText="folder" Width="150" />
+                    <CheckBox Content="Orphans" IsChecked="{Binding GraphShowsOrphans}" />
+                    <CheckBox Content="Missing" IsChecked="{Binding GraphShowsMissingTargets}" />
+                    <CheckBox Content="Local" IsChecked="{Binding IsGraphLocal}"
+                              ToolTip.Tip="Only pages within a few hops of the open one" />
+                    <NumericUpDown Value="{Binding GraphHops}" Minimum="1" Maximum="6" Width="92"
+                                   IsEnabled="{Binding IsGraphLocal}" FormatString="0" />
+                    <Button Name="GraphFitButton" Classes="icon" ToolTip.Tip="Fit to view">
+                      <Path Data="{StaticResource IconFit}" />
+                    </Button>
+                  </StackPanel>
+                  <TextBlock Text="{Binding GraphSummary}" Classes="label" />
+                </StackPanel>
+              </Border>
+              <Panel Name="GraphHost" />
+            </DockPanel>
+          </Grid>
+
+          <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+
+          <!-- Right: what points at this page, and what it contains. -->
+          <TabControl Grid.Column="4" Name="RightRail" Background="{DynamicResource Panel}"
+                      BorderThickness="1,0,0,0" BorderBrush="{DynamicResource Line}">
+
+            <TabItem Header="Outline">
+              <ListBox Name="OutlineList" ItemsSource="{Binding Outline}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="model:HeadingRenderBlock">
+                    <TextBlock Text="{Binding Text}" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                               Margin="{Binding Level, Converter={x:Static app:LevelIndentConverter.Instance}}" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </TabItem>
+
+            <TabItem Header="Backlinks">
+              <ListBox Name="BacklinkList" ItemsSource="{Binding Backlinks}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="graph:Backlink">
+                    <StackPanel Spacing="3">
+                      <TextBlock Text="{Binding Source.DisplayName}" FontSize="12.5"
+                                 Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="identifier" TextTrimming="CharacterEllipsis"
+                                 Text="{Binding Resolution.Rule, StringFormat='via {0}'}" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
-            </DockPanel>
-          </TabItem>
+            </TabItem>
 
-          <TabItem Header="Tags">
-            <TreeView Name="TagTree" ItemsSource="{Binding Tags}">
-              <TreeView.ItemTemplate>
-                <TreeDataTemplate x:DataType="graph:TagNode" ItemsSource="{Binding Children}">
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <TextBlock Text="{Binding Segment}" FontSize="12" />
-                    <TextBlock Text="{Binding TotalCount}" Classes="secondary" />
-                  </StackPanel>
-                </TreeDataTemplate>
-              </TreeView.ItemTemplate>
-            </TreeView>
-          </TabItem>
-        </TabControl>
+            <TabItem Header="Mentions">
+              <ListBox Name="MentionList" ItemsSource="{Binding Mentions}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="graph:UnlinkedMention">
+                    <StackPanel Spacing="3">
+                      <TextBlock Text="{Binding Source.DisplayName}" FontSize="12.5"
+                                 Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Context}" Classes="secondary"
+                                 TextWrapping="Wrap" MaxLines="2" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </TabItem>
+          </TabControl>
 
-        <GridSplitter Grid.Column="1" Width="4" ResizeDirection="Columns" />
-
-        <!-- Center: tabs over the rendered document, or the graph view over the vault. -->
-        <Grid Grid.Column="2">
-          <DockPanel IsVisible="{Binding !IsGraphVisible}">
-            <ListBox DockPanel.Dock="Top" Name="TabStrip" ItemsSource="{Binding Tabs}"
-                     SelectedItem="{Binding ActiveTab}" MaxHeight="40"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
-              <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-              </ListBox.ItemsPanel>
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="app:DocumentTab">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding Title}" FontSize="12" ToolTip.Tip="{Binding Path}" />
-                    <Button Content="✕" FontSize="9" Padding="3,0" Background="Transparent"
-                            BorderThickness="0" Click="OnCloseTabClick" />
-                  </StackPanel>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-
-            <!-- Source on the left when editing, the rendered page always on the right. -->
-            <Grid ColumnDefinitions="*,Auto,*">
-              <DockPanel Grid.Column="0" IsVisible="{Binding IsEditing}">
-                <Border DockPanel.Dock="Top" Padding="8,5" BorderThickness="0,0,0,1" BorderBrush="#33808080">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Name="SaveButton" Content="Save" ToolTip.Tip="Ctrl+S" />
-                    <Button Name="ReloadButton" Content="Reload" ToolTip.Tip="Discard edits and reread the file" />
-                    <TextBlock Text="unsaved" Classes="secondary" VerticalAlignment="Center"
-                               IsVisible="{Binding HasUnsavedChanges}" />
-                  </StackPanel>
-                </Border>
-                <Border Name="ConflictBanner" DockPanel.Dock="Top" IsVisible="False"
-                        Background="#33C0392B" Padding="8,6">
-                  <TextBlock TextWrapping="Wrap" FontSize="12"
-                             Text="This file changed on disk since it was opened. Reload to see the other version, or save again to keep yours." />
-                </Border>
-                <edit:TextEditor Name="Editor" ShowLineNumbers="True" WordWrap="True"
-                                 FontFamily="Cascadia Mono,Consolas,Menlo,monospace" FontSize="13" />
-              </DockPanel>
-
-              <GridSplitter Grid.Column="1" Width="4" ResizeDirection="Columns"
-                            IsVisible="{Binding IsEditing}" />
-
-              <ScrollViewer Grid.Column="2" Name="DocumentScroller" Padding="28,20">
-                <ContentControl Name="DocumentHost" MaxWidth="860" HorizontalAlignment="Left" />
-              </ScrollViewer>
-            </Grid>
-          </DockPanel>
-
-          <!-- Graph view: filters above a canvas that draws the whole vault at once. -->
-          <DockPanel IsVisible="{Binding IsGraphVisible}">
-            <Border DockPanel.Dock="Top" Padding="8,6" BorderThickness="0,0,0,1" BorderBrush="#33808080">
-              <StackPanel Spacing="6">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBox Text="{Binding GraphTypeFilter}" PlaceholderText="type" Width="110" />
-                  <TextBox Text="{Binding GraphTagFilter}" PlaceholderText="tag" Width="110" />
-                  <TextBox Text="{Binding GraphFolderFilter}" PlaceholderText="folder" Width="150" />
-                  <CheckBox Content="Orphans" IsChecked="{Binding GraphShowsOrphans}" />
-                  <CheckBox Content="Missing" IsChecked="{Binding GraphShowsMissingTargets}" />
-                  <CheckBox Content="Local" IsChecked="{Binding IsGraphLocal}"
-                            ToolTip.Tip="Only pages within a few hops of the open one" />
-                  <NumericUpDown Value="{Binding GraphHops}" Minimum="1" Maximum="6" Width="90"
-                                 IsEnabled="{Binding IsGraphLocal}" FormatString="0" />
-                  <Button Name="GraphFitButton" Content="Fit" />
-                </StackPanel>
-                <TextBlock Text="{Binding GraphSummary}" Classes="secondary" />
-              </StackPanel>
-            </Border>
-            <Panel Name="GraphHost" />
-          </DockPanel>
         </Grid>
+      </DockPanel>
 
-        <GridSplitter Grid.Column="3" Width="4" ResizeDirection="Columns" />
-
-        <!-- Right rail: outline, backlinks, unlinked mentions. -->
-        <TabControl Grid.Column="4" Name="RightRail">
-          <TabItem Header="Outline">
-            <ListBox Name="OutlineList" ItemsSource="{Binding Outline}">
+      <!-- Command palette, over everything. -->
+      <Border Name="PaletteOverlay" IsVisible="{Binding IsPaletteOpen}" Background="#99000000">
+        <Border Background="{DynamicResource Panel}" BorderBrush="{DynamicResource LineStrong}"
+                BorderThickness="1" CornerRadius="12" Width="620" MaxHeight="440"
+                VerticalAlignment="Top" Margin="0,110,0,0" Padding="14"
+                BoxShadow="0 24 60 -20 #cc000000">
+          <DockPanel>
+            <TextBox DockPanel.Dock="Top" Name="PaletteBox" Text="{Binding PaletteQuery}"
+                     PlaceholderText="Go to a page, a heading, or an action…" Margin="0,0,0,10"
+                     FontFamily="{DynamicResource UiFont}" FontSize="14" Padding="12,9" />
+            <ListBox Name="PaletteList" ItemsSource="{Binding PaletteResults}">
               <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="model:HeadingRenderBlock">
-                  <TextBlock Text="{Binding Text}" FontSize="12" TextTrimming="CharacterEllipsis"
-                             Margin="{Binding Level, Converter={x:Static app:LevelIndentConverter.Instance}}" />
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </TabItem>
-
-          <TabItem Header="Backlinks">
-            <ListBox Name="BacklinkList" ItemsSource="{Binding Backlinks}">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="graph:Backlink">
+                <DataTemplate x:DataType="app:PaletteEntry">
                   <StackPanel Spacing="2">
-                    <TextBlock Text="{Binding Source.DisplayName}" FontSize="12" />
-                    <TextBlock Classes="secondary" TextTrimming="CharacterEllipsis"
-                               Text="{Binding Resolution.Rule, StringFormat='via {0}'}" />
+                    <TextBlock Text="{Binding Title}" FontSize="13"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="{Binding Subtitle}" Classes="identifier" />
                   </StackPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-          </TabItem>
-
-          <TabItem Header="Mentions">
-            <ListBox Name="MentionList" ItemsSource="{Binding Mentions}">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="graph:UnlinkedMention">
-                  <StackPanel Spacing="2">
-                    <TextBlock Text="{Binding Source.DisplayName}" FontSize="12" />
-                    <TextBlock Text="{Binding Context}" Classes="secondary" TextWrapping="Wrap" MaxLines="2" />
-                  </StackPanel>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </TabItem>
-        </TabControl>
-
-      </Grid>
-    </DockPanel>
-
-    <!-- Command palette, over everything. -->
-    <Border Name="PaletteOverlay" IsVisible="{Binding IsPaletteOpen}"
-            Background="#80000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-      <Border Background="{DynamicResource ThemeBackgroundBrush}" BorderBrush="#55808080"
-              BorderThickness="1" CornerRadius="8" Width="600" MaxHeight="420"
-              VerticalAlignment="Top" Margin="0,90,0,0" Padding="12">
-        <DockPanel>
-          <TextBox DockPanel.Dock="Top" Name="PaletteBox" Text="{Binding PaletteQuery}"
-                   PlaceholderText="Go to a page or heading…" Margin="0,0,0,8" />
-          <ListBox Name="PaletteList" ItemsSource="{Binding PaletteResults}">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="app:PaletteEntry">
-                <StackPanel Spacing="1">
-                  <TextBlock Text="{Binding Title}" FontSize="13" />
-                  <TextBlock Text="{Binding Subtitle}" Classes="secondary" />
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </DockPanel>
+          </DockPanel>
+        </Border>
       </Border>
-    </Border>
 
-  </Grid>
-
+    </Grid>
   </ThemeVariantScope>
 
 </UserControl>

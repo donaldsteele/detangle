@@ -3,8 +3,20 @@
              x:Class="Detangle.App.DetangleApp"
              RequestedThemeVariant="Default">
 
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Detangle.App/Theme.axaml" />
+        <ResourceInclude Source="avares://Detangle.App/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
+
+    <!-- The reader's own control surface, applied over Fluent. -->
+    <StyleInclude Source="avares://Detangle.App/Controls.axaml" />
 
     <!-- The split editor's control template. AvaloniaEdit ships its own theme; without
          this include the editor renders as an unstyled blank area. -->

@@ -163,9 +163,20 @@ public partial class ShellView : UserControl
         ThemeScope.RequestedThemeVariant = isDark ? ThemeVariant.Dark : ThemeVariant.Light;
     }
 
+    /// <summary>
+    /// The body face, addressed by resource URI. A family name finds nothing in the
+    /// WebAssembly build, which has no system fonts to search.
+    /// </summary>
+    private static readonly Avalonia.Media.FontFamily BodyFont =
+        new("avares://Avalonia.Fonts.Inter/Assets#Inter");
+
     private DocumentRenderer CreateRenderer(bool isDark)
     {
-        var renderer = new DocumentRenderer(isDark ? DocumentTheme.Dark : DocumentTheme.Light);
+        DocumentTheme palette = (isDark ? DocumentTheme.Dark : DocumentTheme.Light)
+            with
+        { FontFamily = BodyFont };
+
+        var renderer = new DocumentRenderer(palette);
 
         renderer.LinkActivated += OnLinkActivated;
         renderer.PreviewFactory = BuildPreview;
@@ -206,8 +217,13 @@ public partial class ShellView : UserControl
         if (ViewModel is not { ActiveTab: { Rendered: { } rendered } tab })
         {
             DocumentHost.Content = null;
+            Ledger.Resolutions = null;
             return;
         }
+
+        // The ledger reports on the page in front of the reader, so it is set even when
+        // the document itself is already on screen and will not be rebuilt.
+        Ledger.Resolutions = rendered.Resolutions;
 
         // Re-rendering the document already on screen would throw away the reader's
         // scroll position for nothing.

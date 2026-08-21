@@ -14,32 +14,32 @@ public sealed record DocumentTheme
     public static DocumentTheme Light { get; } = new()
     {
         Highlighting = HighlightTheme.Light,
-        Foreground = Brush.Parse("#1a1d21"),
-        Muted = Brush.Parse("#5c6570"),
-        Background = Brush.Parse("#fdfdfc"),
-        SurfaceBackground = Brush.Parse("#f3f3f1"),
-        Border = Brush.Parse("#dcdcd8"),
+        Foreground = Brush.Parse("#12151b"),
+        Muted = Brush.Parse("#586173"),
+        Background = Brush.Parse("#ffffff"),
+        SurfaceBackground = Brush.Parse("#f1f3f6"),
+        Border = Brush.Parse("#dfe3ea"),
         Link = Brush.Parse("#1f6feb"),
-        UnresolvedLink = Brush.Parse("#b3261e"),
+        UnresolvedLink = Brush.Parse("#c0392b"),
         AmbiguousLink = Brush.Parse("#9a6700"),
-        HighlightBackground = Brush.Parse("#fff3b0"),
-        CodeBackground = Brush.Parse("#f6f6f4"),
+        HighlightBackground = Brush.Parse("#faf0dc"),
+        CodeBackground = Brush.Parse("#f5f7fa"),
     };
 
     /// <summary>The dark palette.</summary>
     public static DocumentTheme Dark { get; } = new()
     {
         Highlighting = HighlightTheme.Dark,
-        Foreground = Brush.Parse("#e6e6e3"),
-        Muted = Brush.Parse("#9aa4b0"),
-        Background = Brush.Parse("#16181b"),
-        SurfaceBackground = Brush.Parse("#1e2125"),
-        Border = Brush.Parse("#31363c"),
+        Foreground = Brush.Parse("#e7eaf0"),
+        Muted = Brush.Parse("#8b94a5"),
+        Background = Brush.Parse("#0b0d12"),
+        SurfaceBackground = Brush.Parse("#161b23"),
+        Border = Brush.Parse("#242b36"),
         Link = Brush.Parse("#6cb6ff"),
-        UnresolvedLink = Brush.Parse("#ff7b72"),
-        AmbiguousLink = Brush.Parse("#e3b341"),
-        HighlightBackground = Brush.Parse("#4a4425"),
-        CodeBackground = Brush.Parse("#1b1e22"),
+        UnresolvedLink = Brush.Parse("#f2635a"),
+        AmbiguousLink = Brush.Parse("#e0a33a"),
+        HighlightBackground = Brush.Parse("#3a2e18"),
+        CodeBackground = Brush.Parse("#11151c"),
     };
 
     /// <summary>Which TextMate theme fenced code is highlighted against.</summary>
@@ -78,8 +78,13 @@ public sealed record DocumentTheme
     /// <summary>Body font size in device-independent pixels.</summary>
     public double FontSize { get; init; } = 15;
 
-    /// <summary>Body font family; falls back through the platform's default UI stack.</summary>
-    public FontFamily FontFamily { get; init; } = FontFamily.Default;
+    /// <summary>
+    /// Body face. Named rather than left as the default: the WebAssembly build has no
+    /// system fonts to fall back through, and the default resolved to a monospace face
+    /// there, which set every page of prose in code type.
+    /// </summary>
+    public FontFamily FontFamily { get; init; } =
+        new("Inter, Segoe UI, Helvetica Neue, Arial, sans-serif");
 
     /// <summary>Monospace family for code.</summary>
     public FontFamily CodeFontFamily { get; init; } =
