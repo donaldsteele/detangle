@@ -365,15 +365,22 @@ h1 em {
   height: auto;
 }
 
-.shot {
-  margin: 0;
+/* Figures placed inside a section already sit within .wrap, so they must not take the
+   hero figure's centring, width cap or gutters - inheriting those left the hero itself
+   flush against the left edge once this rule existed. */
+.shot.inset {
+  max-width: none;
+  margin: 34px 0 0;
+  padding: 0;
 }
 
-.shot figcaption {
+.shot.inset figcaption {
   margin-top: 12px;
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--muted);
+  text-align: left;
+  max-width: 78ch;
 }
 
 .shots {
