@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Detangle — the wiki reader that untangles your links</title>
+<meta name="description" content="A markdown wiki viewer that resolves the links your generator got wrong. Mermaid, DBML, backlinks and a graph — offline, from any folder. macOS, Windows, Linux. MIT." />
+<link rel="canonical" href="https://detangle.dev/" />
+<meta property="og:title" content="Detangle — read the wiki the model actually wrote" />
+<meta property="og:description" content="An LLM writes [[Attention Is All You Need]]; the file is attention-is-all-you-need.md. Detangle resolves it, tells you which rule it used, and lists every link it couldn't." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://detangle.dev/" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+<script>
+  // Pre-paint so the page never flashes the wrong palette. No stored value means
+  // follow the operating system, which the stylesheet handles on its own.
+  try {
+    var stored = localStorage.getItem("detangle-theme");
+    if (stored) { document.documentElement.setAttribute("data-theme", stored); }
+  } catch (e) { /* private mode; the OS preference still applies */ }
+</script>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="wordmark" href="/">de<span>tangle</span></a>
+    <nav>
+      <a href="#links">Links</a>
+      <a href="#diagrams">Diagrams</a>
+      <a href="#formats">Formats</a>
+      <a href="#graph">Graph</a>
+      <a class="persist" href="#demo">Demo</a>
+      <a class="persist" href="docs/">Docs</a>
+      <a class="persist" href="https://github.com/donaldsteele/detangle">GitHub</a>
+      <button class="toggle" id="theme-toggle" type="button" aria-label="Switch theme">Theme</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<div class="hero">
+  <div class="wrap">
+    <span class="pill">Markdown wiki viewer · macOS, Windows, Linux</span>
+    <h1>The wiki reader that <em>untangles</em> your links.</h1>
+    <p class="capability">Mermaid, DBML, backlinks and a graph — offline, from any folder.</p>
+    <p class="lede">
+      An LLM writes <code>[[Attention Is All You Need]]</code>; the file is
+      <code>attention-is-all-you-need.md</code>. Detangle resolves it, tells you which
+      rule it used, and lists every link it couldn't.
+    </p>
+    <div class="cta-row">
+      <a class="button primary" href="#download">Download</a>
+      <a class="button ghost" href="#demo">Try it in your browser</a>
+    </div>
+    <p class="micro">Free · Offline · No account · MIT</p>
+  </div>
+
+  <figure class="shot">
+    <div class="window">
+      <div class="chrome">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="title">resolution log — samples/</span>
+        <button class="copy" type="button" data-copy="log">Copy</button>
+      </div>
+<pre class="log" id="log"><span class="src">[[Attention Is All You Need]]</span>    <span class="arrow">-&gt;</span> <span class="dst">entities/attention-is-all-you-need.md</span>  <span class="rule normalized">normalized-name</span>
+<span class="src">[[getting started#What's next?]]</span> <span class="arrow">-&gt;</span> <span class="dst">wiki/getting-started.md#whats-next</span>    <span class="rule normalized">case + slugified-anchor</span>
+<span class="src">[Setup](wiki/setup)</span>              <span class="arrow">-&gt;</span> <span class="dst">wiki/setup/index.md</span>                   <span class="rule heuristic">folder-index</span>
+<span class="src">![[diagram.png|300]]</span>             <span class="arrow">-&gt;</span> <span class="dst">assets/diagram.png  (width 300)</span>       <span class="rule heuristic">extension probe</span>
+<span class="src">[[Vaswani]]</span>                      <span class="arrow">-&gt;</span> <span class="dst">entities/vaswani.md</span>                   <span class="rule exact">note-relative path</span>
+<span class="src">[[Transformer]]</span>                  <span class="arrow">-&gt;</span> <span class="dst">AMBIGUOUS: concepts/…, entities/…</span>     <span class="rule ambiguous">needs a choice</span>
+<span class="src">[[Dose Response]]</span>                <span class="arrow">-&gt;</span> <span class="dst">unresolved</span>                            <span class="rule unresolved">3 inbound</span></pre>
+    </div>
+    <figcaption>
+      Seven links from the demo wiki. Six resolve; one of them by a rule no other viewer
+      tries, and the last one is reported rather than hidden.
+    </figcaption>
+  </figure>
+</div>
+
+<section id="links">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Resolution</span>
+      <h2>Your links don't have to be perfect.</h2>
+      <p>
+        Every other viewer matches link text against filenames and shows you a dead link
+        when they differ. Detangle tries thirteen rules in order, stops at the first that
+        matches, and tells you which one fired.
+      </p>
+    </div>
+
+    <div class="split">
+      <div class="window">
+        <div class="chrome">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="title">the chain, in order</span>
+        </div>
+<pre class="log"><span class="rule exact"> 1</span> exact vault path          <span class="dst">[[wiki/setup/index]]</span>
+<span class="rule exact"> 2</span> note-relative path        <span class="dst">a sibling of this page</span>
+<span class="rule exact"> 3</span> case-sensitive filename   <span class="dst">[[setup]]</span>
+<span class="rule normalized"> 4</span> path suffix               <span class="dst">[[setup/index]]</span>
+<span class="rule normalized"> 5</span> case-insensitive filename <span class="dst">[[Setup]]</span>
+<span class="rule normalized"> 6</span> normalized name           <span class="dst">[[Attention Is All You Need]]</span>
+<span class="rule normalized"> 7</span> alias or title            <span class="dst">aliases:, title:, first H1</span>
+<span class="rule normalized"> 8</span> identifier                <span class="dst">id:, uid:, permalink:, slug:</span>
+<span class="rule heuristic"> 9</span> folder index              <span class="dst">[Setup](wiki/setup)</span>
+<span class="rule heuristic">10</span> encoding variant          <span class="dst">%20, NFC vs NFD</span>
+<span class="rule heuristic">11</span> extension probe           <span class="dst">![[diagram]]</span>
+<span class="rule ambiguous">12</span> nearest name              <span class="dst">suggested, never followed</span>
+<span class="rule unresolved">13</span> placeholder               <span class="dst">reported, not hidden</span></pre>
+      </div>
+
+      <ul class="points">
+        <li>
+          <h3>A guess always looks like a guess.</h3>
+          <p>
+            Exact matches are drawn as ordinary links. Anything resolved by a fallback
+            gets a dotted underline and a hover that names the rule and the file. A viewer
+            that guesses silently is worse than one that fails loudly.
+          </p>
+        </li>
+        <li>
+          <h3>Ambiguity is a question, not a coin flip.</h3>
+          <p>
+            When a name matches two files, both are listed, the shortest path is used
+            meanwhile, and your choice is remembered for that vault.
+          </p>
+        </li>
+        <li>
+          <h3>Frontmatter references are links.</h3>
+          <p>
+            <code>sources:</code>, <code>related:</code>, <code>parent:</code> and five
+            more spellings are resolved like any other link. Dropping them is why other
+            tools' graphs are smaller than the wiki really is.
+          </p>
+        </li>
+        <li>
+          <h3>Anchors survive prose.</h3>
+          <p>
+            <code>#What's next?</code> matches the heading it names — raw text first,
+            then the slug, then block ids, uuids, line ranges and PDF pages. A fragment
+            that misses never costs you the page.
+          </p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="diagrams">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Diagrams</span>
+      <h2>Mermaid and DBML, rendered offline.</h2>
+      <p>
+        No Node, no Chromium, no CDN, and no network access of any kind. Both renderers
+        are .NET libraries running in the same process as the reader.
+      </p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Mermaid</h3>
+        <p>
+          Twenty-four diagram types through a pure .NET implementation. Renders are cached
+          beside the vault by source and theme, so re-opening a page is instant.
+        </p>
+      </div>
+      <div class="card">
+        <h3>DBML</h3>
+        <p>
+          Parsed by a recursive-descent parser written for this app and drawn as an ER
+          diagram. The translation is lossy, so everything it drops — defaults, notes,
+          indexes, table groups — is listed under the picture instead.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Failures show their source</h3>
+        <p>
+          A fence that will not parse shows its text and the parser's complaint, with the
+          line. It never renders an empty box.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="formats">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Formats</span>
+      <h2>It already knows what kind of wiki this is.</h2>
+      <p>
+        The conventions genuinely differ — the same link text means different things in
+        different tools — so the folder is sniffed before it is read.
+      </p>
+    </div>
+
+    <div class="formats">
+      <div><strong>Obsidian</strong><span>.obsidian/</span></div>
+      <div><strong>Logseq</strong><span>logseq/</span></div>
+      <div><strong>MkDocs</strong><span>mkdocs.yml</span></div>
+      <div><strong>Docusaurus</strong><span>docusaurus.config.*</span></div>
+      <div><strong>Dendron</strong><span>dendron.yml</span></div>
+      <div><strong>Foam</strong><span>.vscode/foam.json</span></div>
+      <div><strong>Quartz</strong><span>quartz.config.ts</span></div>
+      <div><strong>Hugo</strong><span>hugo.toml</span></div>
+      <div><strong>Jekyll</strong><span>_config.yml</span></div>
+      <div><strong>mdBook</strong><span>book.toml</span></div>
+      <div><strong>Zettelkasten</strong><span>202608201200-*.md</span></div>
+      <div><strong>LLM Wiki</strong><span>wiki/ beside raw/</span></div>
+      <div><strong>Plain markdown</strong><span>anything else</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="graph">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Graph</span>
+      <h2>See the shape of what the model wrote.</h2>
+      <p>
+        Node size is inbound links, colour is frontmatter type, hollow means nothing links
+        here, and a dashed outline is a page something links to that nobody wrote.
+      </p>
+    </div>
+
+    <div class="split reverse">
+      <ul class="points">
+        <li>
+          <h3>Missing pages are drawn.</h3>
+          <p>In a wiki a model produced, they are the shape of the work left to do.</p>
+        </li>
+        <li>
+          <h3>Local mode.</h3>
+          <p>
+            The neighbourhood of the page you were reading, N hops out, walked in both
+            directions — a page's backlinks are as much its neighbourhood as its own links.
+          </p>
+        </li>
+        <li>
+          <h3>It stays interactive.</h3>
+          <p>
+            Repulsion goes through a Barnes-Hut quadtree spread across cores: about 11 ms
+            per simulation step over a 5,000-page vault, inside a 33 ms frame. Above 1,500
+            nodes it folds to one node per folder, because a hairball is not a picture.
+          </p>
+        </li>
+      </ul>
+
+      <div class="window">
+        <div class="chrome">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="title">graph — 5,002 files</span>
+        </div>
+<pre class="log"><span class="dst">nodes</span>        6,456     <span class="rule normalized">1,454 missing pages</span>
+<span class="dst">edges</span>       21,655     <span class="rule exact">41,655 links resolved</span>
+<span class="dst">layout</span>     11.5 ms     <span class="rule exact">per step, 8 cores</span>
+<span class="dst">budget</span>     33.0 ms     <span class="rule exact">30 frames a second</span>
+<span class="dst">fold</span>       &gt; 1,500     <span class="rule heuristic">one node per folder</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="search">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Search &amp; Doctor</span>
+      <h2>Find it before you finish typing.</h2>
+      <p>
+        SQLite FTS5 over the whole vault, with a field syntax for the things frontmatter
+        actually holds — and one list of everything wrong with the links.
+      </p>
+    </div>
+
+    <div class="split">
+      <div class="window">
+        <div class="chrome">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="title">query syntax</span>
+        </div>
+<pre class="log"><span class="src">attention</span>              <span class="dst">the word, ranked by bm25</span>
+<span class="src">"is all you need"</span>      <span class="dst">the exact phrase</span>
+<span class="src">type:concept</span>           <span class="dst">frontmatter type</span>
+<span class="src">tag:llm</span>                <span class="dst">and everything under llm/</span>
+<span class="src">path:wiki/</span>             <span class="dst">a folder</span>
+<span class="src">updated&gt;2026-06-01</span>     <span class="dst">changed since a date</span></pre>
+      </div>
+
+      <ul class="points">
+        <li>
+          <h3>Every broken link, in one list.</h3>
+          <p>
+            Broken, ambiguous, non-canonical, orphaned, stale, duplicated, oversized, and
+            malformed frontmatter — each with the file and the line.
+          </p>
+        </li>
+        <li>
+          <h3>Fix all safe.</h3>
+          <p>
+            Rewrites only the links that have exactly one correct answer. Ambiguous and
+            broken links are never touched, because neither one does.
+          </p>
+        </li>
+        <li>
+          <h3>Or write the missing page.</h3>
+          <p>
+            One click stubs the file a broken link was pointing at, from your vault's own
+            template, so it looks like the notes around it.
+          </p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Demo</span>
+      <h2>Try it without installing anything.</h2>
+      <p>
+        The real reader, compiled to WebAssembly, holding a small wiki written the way a
+        model writes one. Open your browser's network tab: after the page loads, it stays
+        empty.
+      </p>
+    </div>
+
+    <div class="demo-frame">
+      <iframe src="demo/" title="Detangle running in the browser" loading="lazy"></iframe>
+    </div>
+    <p class="micro">
+      Same renderer, same resolver, same diagrams. The desktop build adds search, the file
+      watcher, editing and export.
+    </p>
+  </div>
+</section>
+
+<section id="craft">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Craft</span>
+      <h2>Built like the tool it is.</h2>
+      <p>
+        Local-first is a set of decisions, not a slogan. These are the ones that cost
+        something.
+      </p>
+    </div>
+  </div>
+
+  <div class="specs">
+    <div><strong>No network</strong><span>Zero requests, including for diagrams</span></div>
+    <div><strong>13 formats</strong><span>Detected, not configured</span></div>
+    <div><strong>5,000 files</strong><span>Cold index in 3.3 seconds</span></div>
+    <div><strong>0 accounts</strong><span>Your wiki is just files</span></div>
+  </div>
+
+  <div class="wrap" style="margin-top: 40px">
+    <div class="cards">
+      <div class="card">
+        <h3>It does not change your files.</h3>
+        <p>
+          Unless you ask: saving, applying a fix, creating a missing note, or normalizing
+          links. Its index lives in a <code>.detangle/</code> folder you can delete.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Exports keep the links.</h3>
+        <p>
+          Static site, one HTML file, PDF, or normalized markdown — all built from the
+          resolved model, so a link found by an alias is a working link in the output.
+        </p>
+      </div>
+      <div class="card">
+        <h3>MIT, and self-contained.</h3>
+        <p>
+          One binary with the runtime inside it. Nothing to install first, no version to
+          match, and no dependency that can go missing.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Documentation</span>
+      <h2>Read it before you download it.</h2>
+      <p>Nine pages, written for somebody deciding whether this is worth the disk space.</p>
+    </div>
+
+    <div class="doclinks">
+      <a href="docs/link-resolution.html">Link resolution<span>The thirteen rules, in order</span></a>
+      <a href="docs/formats.html">Formats<span>What is detected, and what changes</span></a>
+      <a href="docs/diagrams.html">Diagrams<span>Mermaid and DBML offline</span></a>
+      <a href="docs/search.html">Search<span>The query syntax</span></a>
+      <a href="docs/link-doctor.html">Link Doctor<span>Findings and safe fixes</span></a>
+      <a href="docs/graph.html">Graph view<span>Reading the picture</span></a>
+      <a href="docs/editing-and-export.html">Editing and export<span>Atomic saves, four export shapes</span></a>
+      <a href="docs/keyboard.html">Keyboard<span>Every shortcut</span></a>
+      <a href="docs/faq.html">FAQ<span>What it deliberately does not do</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Download</span>
+      <h2>Point it at a folder.</h2>
+      <p>Version <span id="version">0.1.0</span>. Free, MIT, and the same build on every platform.</p>
+    </div>
+
+    <div class="os-panels" id="os-panels">
+      <div class="tabs" role="tablist">
+        <button class="tab" type="button" role="tab" data-os="macos" aria-selected="true">macOS</button>
+        <button class="tab" type="button" role="tab" data-os="linux" aria-selected="false">Linux</button>
+        <button class="tab" type="button" role="tab" data-os="windows" aria-selected="false">Windows</button>
+      </div>
+
+      <div class="os active" data-os="macos">
+        <h3>macOS</h3>
+        <div class="command">
+          <span class="prompt">$ </span><span data-command>brew install --cask detangle</span>
+          <button type="button" data-copy-command>Copy</button>
+        </div>
+        <p>
+          Or download the signed, notarized
+          <a href="https://github.com/donaldsteele/detangle/releases/latest">.dmg</a> —
+          Apple Silicon and Intel are separate builds.
+        </p>
+      </div>
+
+      <div class="os" data-os="linux">
+        <h3>Linux</h3>
+        <div class="command">
+          <span class="prompt">$ </span><span data-command>sudo apt install ./detangle_0.1.0_amd64.deb</span>
+          <button type="button" data-copy-command>Copy</button>
+        </div>
+        <p>
+          Or take the
+          <a href="https://github.com/donaldsteele/detangle/releases/latest">AppImage</a>
+          and <code>chmod +x</code> it. x64 and arm64 both build. The optional WebView
+          diagram backend wants <code>libwebkit2gtk-4.1-0</code>; nothing else does.
+        </p>
+      </div>
+
+      <div class="os" data-os="windows">
+        <h3>Windows</h3>
+        <div class="command">
+          <span class="prompt">$ </span><span data-command>winget install Detangle</span>
+          <button type="button" data-copy-command>Copy</button>
+        </div>
+        <p>
+          Or run the signed
+          <a href="https://github.com/donaldsteele/detangle/releases/latest">installer</a>.
+          x64 and arm64 both build, and updates are delta downloads after the first one.
+        </p>
+      </div>
+    </div>
+
+    <p class="micro">
+      Every release ships checksums. Building from source is
+      <code>dotnet publish src/Detangle.Desktop</code> and nothing else.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="wordmark" href="/">de<span>tangle</span></a>
+    <span>© 2026 · MIT</span>
+    <nav>
+      <a href="docs/">Docs</a>
+      <a href="https://github.com/donaldsteele/detangle">GitHub</a>
+      <a href="https://github.com/donaldsteele/detangle/releases">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

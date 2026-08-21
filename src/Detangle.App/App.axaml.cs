@@ -26,22 +26,50 @@ public partial class DetangleApp : Application
         AvaloniaXamlLoader.Load(this);
     }
 
+    /// <summary>
+    /// A vault to open at startup. The desktop head takes it from the command line; the
+    /// WASM demo points it at the sample wiki it unpacked into the browser's filesystem.
+    /// </summary>
+    public static string? StartupVault { get; set; }
+
     public override void OnFrameworkInitializationCompleted()
     {
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        switch (ApplicationLifetime)
         {
-            var viewModel = new ShellViewModel { UpdateService = UpdateService };
+            case IClassicDesktopStyleApplicationLifetime desktop:
+                // "detangle path/to/vault" opens straight into that vault, which is how
+                // the app is launched from a shell.
+                if (desktop.Args is [{ Length: > 0 } path, ..])
+                {
+                    StartupVault = path;
+                }
 
-            // "detangle path/to/vault" opens straight into that vault, which is how the
-            // app is launched from a shell and from the phase 2 verification run.
-            if (desktop.Args is [{ Length: > 0 } path, ..])
-            {
-                viewModel.OpenVault(path);
-            }
+                desktop.MainWindow = new MainWindow { DataContext = CreateShell() };
+                break;
 
-            desktop.MainWindow = new MainWindow { DataContext = viewModel };
+            // A browser tab has no windows, so the same view is hosted directly. It is
+            // the same control tree either way: a demo that ran different code would not
+            // be demonstrating the product.
+            case ISingleViewApplicationLifetime singleView:
+                singleView.MainView = new ShellView { DataContext = CreateShell() };
+                break;
+
+            default:
+                break;
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static ShellViewModel CreateShell()
+    {
+        var viewModel = new ShellViewModel { UpdateService = UpdateService };
+
+        if (StartupVault is { Length: > 0 } vault)
+        {
+            viewModel.OpenVault(vault);
+        }
+
+        return viewModel;
     }
 }

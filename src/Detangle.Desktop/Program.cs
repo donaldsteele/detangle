@@ -16,6 +16,15 @@ internal static class Program
         // before this point would be initialized during a silent hook for no reason.
         VelopackApp.Build().Run();
 
+        // "detangle --export-site <vault> <out>" publishes without opening a window,
+        // which is how this project's own documentation site is built.
+        if (HeadlessExport.TryRun(args, out int exitCode))
+        {
+            Environment.Exit(exitCode);
+
+            return;
+        }
+
         App.DetangleApp.UpdateService = new VelopackUpdateService();
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

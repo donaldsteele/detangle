@@ -206,13 +206,40 @@ public sealed partial class ShellViewModel : ObservableObject
         _graph = LinkGraph.Build(_vault);
         VaultPath = _vault.RootPath;
 
+        // Search and the file watcher are conveniences, not the product. Both need
+        // platform facilities — SQLite's native library, and OS file notifications — that
+        // the WASM demo does not have, and a reader losing the search box is a far better
+        // outcome there than a vault that refuses to open.
         _search?.Dispose();
-        _search = SearchIndex.Open(_vault.RootPath);
-        _search.Rebuild(_vault, ReadContent);
+        _search = null;
+
+        try
+        {
+            _search = SearchIndex.Open(_vault.RootPath);
+            _search.Rebuild(_vault, ReadContent);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            _search?.Dispose();
+            _search = null;
+            SearchSummary = "Search is unavailable in this build.";
+        }
 
         _watcher?.Dispose();
-        _watcher = new VaultWatcher(_vault);
-        _watcher.Changed += OnVaultChanged;
+        _watcher = null;
+
+        try
+        {
+            _watcher = new VaultWatcher(_vault);
+            _watcher.Changed += OnVaultChanged;
+        }
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or NotSupportedException
+            or UnauthorizedAccessException or ArgumentException)
+        {
+            // Without a watcher the vault is still read; it just will not notice a file
+            // changing underneath it until something asks for a rescan.
+            _watcher = null;
+        }
 
         RefreshFindings();
 
@@ -381,7 +408,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Reindexes and re-examines after files changed outside the app.</summary>
     private void OnVaultChanged(object? sender, IReadOnlyList<VaultChange> changes)
     {
-        if (_vault is null || _search is null)
+        if (_vault is null)
         {
             return;
         }
@@ -401,7 +428,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         _vault = rescanned;
         _graph = LinkGraph.Build(_vault);
-        _search.Rebuild(_vault, ReadContent);
+        _search?.Rebuild(_vault, ReadContent);
 
         foreach (VaultChange change in changes)
         {

@@ -17,6 +17,17 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
   </ItemGroup>
 
+  <!--
+    The WASM demo (phase 9). Avalonia.Browser brings an older SkiaSharp WebAssembly
+    build than the managed SkiaSharp everything else resolves to, and the mismatch is a
+    link-time failure with an undefined native symbol rather than anything a compiler
+    catches — so the native asset is pinned to match the managed library on purpose.
+  -->
+  <ItemGroup Label="WASM demo (phase 9)">
+    <PackageVersion Include="Avalonia.Browser" Version="12.1.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.148.0" />
+  </ItemGroup>
+
   <ItemGroup Label="MVVM">
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>

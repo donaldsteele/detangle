@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <RootNamespace>Detangle.Browser</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <WasmMainJSPath>wwwroot\main.js</WasmMainJSPath>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" />
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Detangle.App\Detangle.App.csproj" />
+    <ProjectReference Include="..\Detangle.Rendering\Detangle.Rendering.csproj" />
+  </ItemGroup>
+
+  <!--
+    The demo wiki is compiled into the assembly rather than fetched. A browser has no
+    filesystem to point the scanner at, and fetching a folder of markdown would mean a
+    network call on a page whose whole claim is that the app does not make any.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\samples\**\*.md" LinkBase="Samples" />
+  </ItemGroup>
+
+</Project>

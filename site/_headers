@@ -1,0 +1,23 @@
+# Security headers for the static site. GitHub Pages ignores this file; Cloudflare
+# Pages reads it. It is checked in either way so the policy is reviewable in the repo
+# rather than living only in somebody's dashboard.
+#
+# The inline script in index.html is the theme pre-paint — it has to be inline to run
+# before the first frame, so it is allowlisted by hash rather than by 'unsafe-inline'.
+# Everything else, including the whole site's JavaScript, is 'self'.
+
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'sha256-DHQq+ciGxK/S+gFS8VgqRQiLS4BE8mrtp18mHogASrI='; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# The demo is WebAssembly, which needs the two relaxations below — and only on this
+# path. The rest of the site keeps the strict policy above.
+/demo/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  X-Content-Type-Options: nosniff

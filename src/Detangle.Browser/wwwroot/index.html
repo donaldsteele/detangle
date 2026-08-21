@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Detangle — live demo</title>
+  <meta name="description" content="Detangle running in a browser tab, reading a wiki an LLM wrote." />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <noscript>
+    The demo needs JavaScript and WebAssembly. Everything it does runs in this tab —
+    <a href="../">the desktop app</a> needs neither.
+  </noscript>
+
+  <div id="loading" role="status">
+    <p class="mark">de<span>tangle</span></p>
+    <p class="note">Loading the runtime. Nothing is fetched after this — check the network tab.</p>
+  </div>
+
+  <div id="out"></div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

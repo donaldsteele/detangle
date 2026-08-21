@@ -14,7 +14,9 @@ couldn't.
 
 ## Status
 
-Pre-alpha. Phase 0 of 9 — see [plan.md](plan.md) for the full design.
+All nine phases of [plan.md](plan.md) are implemented. Nothing has been released yet: the
+release workflow has never run against a tag, so the installers and the in-app updater are
+written but unproven.
 
 ## What it does
 
@@ -36,7 +38,21 @@ Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 ```
 dotnet build Detangle.slnx
 dotnet test Detangle.slnx
-dotnet run --project src/Detangle.Desktop
+dotnet run --project src/Detangle.Desktop -- samples
+```
+
+Publishing a vault needs no window:
+
+```
+dotnet run --project src/Detangle.Desktop -- --export-site docs out --title "Detangle Docs"
+```
+
+The WebAssembly demo is not in the solution — it needs the `wasm-tools` workload, which
+would break `dotnet build` for anybody who has not installed it:
+
+```
+dotnet workload install wasm-tools
+dotnet publish src/Detangle.Browser
 ```
 
 ## Layout
@@ -46,8 +62,12 @@ dotnet run --project src/Detangle.Desktop
 | `src/Detangle.Core` | Vault scanning, parsing, link resolution, graph, search. No UI, no Avalonia. |
 | `src/Detangle.Rendering` | Markdig AST to Avalonia controls; the `IDiagramRenderer` contract. |
 | `src/Detangle.App` | Shared Avalonia UI. |
-| `src/Detangle.Desktop` | Windows, macOS and Linux entry point. |
+| `src/Detangle.Desktop` | Windows, macOS and Linux entry point, and the headless exporter. |
+| `src/Detangle.Browser` | The WebAssembly demo. Not in the solution; see above. |
 | `tests/Detangle.Core.Tests` | Resolver golden tests and DBML conformance tests. |
+| `docs/` | The documentation, which is also the app's built-in help vault. |
+| `samples/` | A small wiki written the way a model writes one; the demo ships it. |
+| `site/` | The website: hand-written HTML, one stylesheet, no build step. |
 
 `Detangle.Core` must never reference Avalonia — it stays headless-testable so the
 resolver can be golden-tested without a UI.

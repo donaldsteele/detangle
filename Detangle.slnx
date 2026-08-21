@@ -5,6 +5,12 @@
     <Project Path="src/Detangle.Desktop/Detangle.Desktop.csproj" />
     <Project Path="src/Detangle.Rendering/Detangle.Rendering.csproj" />
   </Folder>
+  <!--
+    Detangle.Browser is deliberately absent. It targets net10.0-browser and needs the
+    wasm-tools workload, which would make "dotnet build Detangle.slnx" fail on any machine
+    that has not installed it — including every job of the CI matrix. It is built by
+    .github/workflows/site.yml, which installs the workload first.
+  -->
   <Folder Name="/tests/">
     <Project Path="tests/Detangle.Core.Tests/Detangle.Core.Tests.csproj" />
     <Project Path="tests/Detangle.App.Tests/Detangle.App.Tests.csproj" />

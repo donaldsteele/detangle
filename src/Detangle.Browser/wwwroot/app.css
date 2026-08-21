@@ -1,0 +1,67 @@
+/* The host page around the canvas. The app draws everything else itself. */
+:root {
+  --bg: #0a0c11;
+  --text: #e6e9ef;
+  --dim: #8a92a3;
+  --accent: #e0a33a;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+#out {
+  width: 100%;
+  height: 100%;
+}
+
+#out canvas {
+  display: block;
+  outline: none;
+}
+
+#loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 22px;
+}
+
+.mark {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 660;
+  letter-spacing: -0.03em;
+}
+
+.mark span {
+  color: var(--accent);
+}
+
+.note {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+noscript {
+  display: block;
+  padding: 40px 22px;
+  max-width: 60ch;
+  margin: 0 auto;
+  color: var(--dim);
+}
+
+noscript a {
+  color: var(--accent);
+}

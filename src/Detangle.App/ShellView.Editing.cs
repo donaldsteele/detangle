@@ -5,16 +5,23 @@ using Detangle.Core.Editing;
 namespace Detangle.App;
 
 /// <summary>
-/// The window's editing and export wiring (plan.md sections 6.5 and 6.6).
+/// The shell's editing and export wiring (plan.md sections 6.5 and 6.6).
 /// <para>
 /// Paths are asked for rather than guessed. An export writes a directory full of files
 /// and normalization rewrites the vault in place, and neither is something to do to a
 /// folder the reader did not name.
 /// </para>
 /// </summary>
-public partial class MainWindow
+public partial class ShellView
 {
     private bool _syncingEditor;
+
+    /// <summary>
+    /// The file pickers, reached through the top level rather than held. A view does not
+    /// know whether it is in a window or in a browser tab, and in a browser tab there is
+    /// no window to ask.
+    /// </summary>
+    private Avalonia.Platform.Storage.IStorageProvider? Storage => TopLevel.GetTopLevel(this)?.StorageProvider;
 
     private void WireEditing()
     {
@@ -109,7 +116,12 @@ public partial class MainWindow
             return;
         }
 
-        IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(
+        if (Storage is not { } storage)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(
             new FolderPickerOpenOptions { Title = "Export the vault as a static site", AllowMultiple = false });
 
         if (folders is [{ } folder] && folder.TryGetLocalPath() is { Length: > 0 } path)
@@ -154,7 +166,12 @@ public partial class MainWindow
             ? document.Stem
             : Path.GetFileName(ViewModel?.VaultPath.TrimEnd(Path.DirectorySeparatorChar) ?? "vault");
 
-        return StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        if (Storage is not { } storage)
+        {
+            return Task.FromResult<IStorageFile?>(null);
+        }
+
+        return storage.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = $"Export as {description}",
             SuggestedFileName = $"{(suggested.Length == 0 ? "vault" : suggested)}.{extension}",

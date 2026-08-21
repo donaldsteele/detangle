@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Detangle">
+  <!--
+    A tangle with one path pulled clean through it. Deliberately not a document icon:
+    the product is about the links, not about the pages. Reads at 16px because the
+    tangle is two strokes rather than a knot of them.
+  -->
+  <rect width="32" height="32" rx="7" fill="#15181f" />
+  <g fill="none" stroke-linecap="round" stroke-width="2.4">
+    <path d="M7 22c4-2 4-8 8-8s4 6 8 4" stroke="#5c6473" />
+    <path d="M7 10c4 2 6 6 10 6s5-4 8-4" stroke="#323a4a" />
+    <path d="M6 16h20" stroke="#e0a33a" />
+  </g>
+</svg>
