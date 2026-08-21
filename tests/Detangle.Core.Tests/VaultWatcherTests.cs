@@ -105,13 +105,65 @@ public class VaultWatcherTests : IDisposable
     }
 
     [Fact]
-    public void UsesTheLargerBufferThatKeepsWindowsFromDroppingEvents()
+    public async Task DisposingWhileEventsAreInFlightDoesNotCrashTheProcess()
     {
-        // A silent overflow is the failure mode this guards against; the value is part of
-        // the contract, not an implementation detail.
-        using VaultWatcher watcher = Watch();
+        // Filesystem events arrive on a threadpool thread and keep arriving after Dispose
+        // returns. Touching a disposed timer there throws where nobody can catch it, which
+        // takes the whole process down — it was killing test runs mid-flight.
+        var unhandled = new List<Exception>();
 
-        Assert.NotNull(watcher);
+        void OnUnhandled(object sender, UnhandledExceptionEventArgs e)
+        {
+            if (e.ExceptionObject is Exception exception)
+            {
+                unhandled.Add(exception);
+            }
+        }
+
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
+
+        try
+        {
+            VaultWatcher watcher = Watch();
+
+            for (int i = 0; i < 40; i++)
+            {
+                await File.WriteAllTextAsync(
+                    Path.Combine(_root, $"burst-{i}.md"),
+                    $"# Burst {i}",
+                    TestContext.Current.CancellationToken);
+            }
+
+            watcher.Dispose();
+
+            // Give the events already queued a chance to land on the disposed watcher.
+            await Task.Delay(TimeSpan.FromMilliseconds(400), TestContext.Current.CancellationToken);
+
+            Assert.Empty(unhandled);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
+        }
+    }
+
+    [Fact]
+    public void DisposingTwiceIsHarmless()
+    {
+        VaultWatcher watcher = Watch();
+
+        watcher.Dispose();
+        watcher.Dispose();
+    }
+
+    [Fact]
+    public void ReconcileAfterDisposeReportsNothing()
+    {
+        VaultWatcher watcher = Watch();
+
+        watcher.Dispose();
+
+        Assert.Empty(watcher.Reconcile());
     }
 
     public void Dispose()

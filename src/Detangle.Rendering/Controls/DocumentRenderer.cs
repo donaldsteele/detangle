@@ -214,7 +214,7 @@ public sealed class DocumentRenderer
         {
             panel.Children.Add(new SelectableTextBlock
             {
-                Text = diagnostic,
+                Text = Wrappable(diagnostic),
                 FontSize = _theme.FontSize * 0.85,
                 Foreground = diagram.IsRendered ? _theme.Muted : _theme.UnresolvedLink,
                 TextWrapping = TextWrapping.Wrap,
@@ -247,7 +247,7 @@ public sealed class DocumentRenderer
     /// now matches it.
     /// </para>
     /// </summary>
-    private Control SourceLines(string source)
+    private Control SourceLines(string source, IBrush? foreground = null, double? fontSize = null)
     {
         var lines = new StackPanel();
 
@@ -257,8 +257,8 @@ public sealed class DocumentRenderer
             {
                 Text = line,
                 FontFamily = _theme.CodeFontFamily,
-                FontSize = _theme.FontSize * 0.9,
-                Foreground = _theme.Muted,
+                FontSize = fontSize ?? _theme.FontSize * 0.9,
+                Foreground = foreground ?? _theme.Muted,
                 TextWrapping = TextWrapping.NoWrap,
             });
         }
@@ -269,6 +269,54 @@ public sealed class DocumentRenderer
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
+    }
+
+    /// <summary>
+    /// Makes text safe to put in a text block, by keeping it to one line.
+    /// <para>
+    /// Avalonia 12.1.1's text layout does not terminate for a block whose text contains
+    /// an empty line when it is measured with unbounded height — which is exactly what
+    /// every vertical StackPanel hands its children, wrapping on or off. One blank line
+    /// in one caption is enough to hang the whole page.
+    /// </para>
+    /// <para>
+    /// Rather than hunting for empty lines specifically, every string bound for a text
+    /// block is folded to a single line here. Nothing is lost: real multi-line content
+    /// arrives as separate blocks — paragraphs from the parser, one control per line for
+    /// code, diagram and math source (see <see cref="SourceLines"/>) — and hard breaks
+    /// inside a paragraph are LineBreak inlines, not newlines in a run.
+    /// </para>
+    /// <para>
+    /// Public because it is the guard the regression tests pin, and because any caller
+    /// building its own text controls over vault content needs the same protection.
+    /// </para>
+    /// </summary>
+    public static string Wrappable(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        if (!text.Contains('\n') && !text.Contains('\r'))
+        {
+            return text;
+        }
+
+        string[] lines = SplitLines(text);
+        var kept = new List<string>(lines.Length);
+
+        foreach (string line in lines)
+        {
+            string trimmed = line.Trim();
+
+            if (trimmed.Length > 0)
+            {
+                kept.Add(trimmed);
+            }
+        }
+
+        return string.Join(' ', kept);
     }
 
     /// <summary>Splits text into lines, tolerating either line ending.</summary>
@@ -542,14 +590,7 @@ public sealed class DocumentRenderer
             Children =
             {
                 Caption("math"),
-                new SelectableTextBlock
-                {
-                    Text = math.Source.Trim(),
-                    FontFamily = _theme.CodeFontFamily,
-                    FontSize = _theme.FontSize,
-                    Foreground = _theme.Foreground,
-                    TextWrapping = TextWrapping.Wrap,
-                },
+                SourceLines(math.Source, _theme.Foreground, _theme.FontSize),
             },
         },
     };
@@ -620,7 +661,7 @@ public sealed class DocumentRenderer
         {
             panel.Children.Add(new SelectableTextBlock
             {
-                Text = error,
+                Text = Wrappable(error),
                 Foreground = _theme.UnresolvedLink,
                 FontSize = _theme.FontSize * 0.9,
                 TextWrapping = TextWrapping.Wrap,
@@ -647,13 +688,13 @@ public sealed class DocumentRenderer
         DocumentFrontmatter frontmatter = properties.Frontmatter;
         var rows = new StackPanel { Spacing = 4 };
 
-        void AddRow(string key, IEnumerable<Control> values)
+        void AddRow(string key, Control value)
         {
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("140,*") };
 
             var label = new SelectableTextBlock
             {
-                Text = key,
+                Text = Wrappable(key),
                 Foreground = _theme.Muted,
                 FontSize = _theme.FontSize * 0.9,
             };
@@ -661,24 +702,33 @@ public sealed class DocumentRenderer
             Grid.SetColumn(label, 0);
             row.Children.Add(label);
 
-            var value = new WrapPanel { Orientation = Orientation.Horizontal };
-
-            foreach (Control control in values)
-            {
-                value.Children.Add(control);
-            }
-
             Grid.SetColumn(value, 1);
             row.Children.Add(value);
 
             rows.Children.Add(row);
         }
 
+        // A WrapPanel measures its children with unbounded width, and Avalonia's text
+        // layout does not terminate for a wrapping block measured that way. Chips and
+        // links go in one because they never wrap internally; a plain value goes straight
+        // into the grid cell, where its width is bounded and wrapping is safe.
+        void AddChips(string key, IEnumerable<Control> chips)
+        {
+            var value = new WrapPanel { Orientation = Orientation.Horizontal };
+
+            foreach (Control chip in chips)
+            {
+                value.Children.Add(chip);
+            }
+
+            AddRow(key, value);
+        }
+
         void AddText(string key, string? text)
         {
             if (!string.IsNullOrWhiteSpace(text))
             {
-                AddRow(key, [PlainText(text)]);
+                AddRow(key, PlainText(text));
             }
         }
 
@@ -689,18 +739,22 @@ public sealed class DocumentRenderer
 
         if (frontmatter.Tags.Count > 0)
         {
-            AddRow("tags", frontmatter.Tags.Select(tag => Chip($"#{tag}")));
+            AddChips("tags", frontmatter.Tags.Select(tag => Chip($"#{tag}")));
         }
 
         if (frontmatter.Aliases.Count > 0)
         {
-            AddRow("aliases", frontmatter.Aliases.Select(Chip));
+            AddChips("aliases", frontmatter.Aliases.Select(Chip));
         }
 
         if (properties.References.Count > 0)
         {
-            AddRow("references", properties.References.Select(reference =>
-                LinkControl(reference, reference.Target?.DisplayName ?? reference.Link.RawTarget, null)));
+            AddChips("references", properties.References.Select(reference =>
+                LinkControl(
+                    reference,
+                    reference.Target?.DisplayName ?? reference.Link.RawTarget,
+                    externalUrl: null,
+                    wrap: false)));
         }
 
         AddText("created", frontmatter.Created?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
@@ -745,7 +799,7 @@ public sealed class DocumentRenderer
         switch (inline)
         {
             case TextRun text:
-                target.Add(StyledRun(text.Text, style));
+                target.Add(StyledRun(Wrappable(text.Text), style));
                 break;
 
             case StyleRun styled:
@@ -757,7 +811,7 @@ public sealed class DocumentRenderer
                 break;
 
             case CodeRun code:
-                target.Add(new Run(code.Code)
+                target.Add(new Run(Wrappable(code.Code))
                 {
                     FontFamily = _theme.CodeFontFamily,
                     Background = _theme.CodeBackground,
@@ -778,7 +832,7 @@ public sealed class DocumentRenderer
                 break;
 
             case MathRun math:
-                target.Add(new Run(math.Source)
+                target.Add(new Run(Wrappable(math.Source))
                 {
                     FontFamily = _theme.CodeFontFamily,
                     Foreground = _theme.Muted,
@@ -853,14 +907,23 @@ public sealed class DocumentRenderer
     /// 5.5): nothing for steps 1-3, a dotted underline for the normalized steps, a marker
     /// for the structural ones, and unresolved styling for a placeholder.
     /// </summary>
-    private Control LinkControl(LinkResolution resolution, string text, string? externalUrl)
+    /// <param name="resolution">The chain's answer for this link.</param>
+    /// <param name="text">What the reader sees.</param>
+    /// <param name="externalUrl">The href, for a link that leaves the vault.</param>
+    /// <param name="wrap">
+    /// False inside a WrapPanel, whose unbounded-width measure and a wrapping text block
+    /// together never finish laying out.
+    /// </param>
+    private Control LinkControl(
+        LinkResolution resolution, string text, string? externalUrl, bool wrap = true)
     {
         var label = new TextBlock
         {
-            Text = text,
+            Text = Wrappable(text),
             FontSize = _theme.FontSize,
             FontFamily = _theme.FontFamily,
-            TextWrapping = TextWrapping.Wrap,
+            TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            TextTrimming = wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis,
             Foreground = resolution.Confidence switch
             {
                 ResolutionConfidence.Unresolved => _theme.UnresolvedLink,
@@ -1019,7 +1082,7 @@ public sealed class DocumentRenderer
 
     private SelectableTextBlock PlainText(string text) => new()
     {
-        Text = text,
+        Text = Wrappable(text),
         FontSize = _theme.FontSize,
         Foreground = _theme.Foreground,
         TextWrapping = TextWrapping.Wrap,
@@ -1035,7 +1098,7 @@ public sealed class DocumentRenderer
         Margin = new Thickness(0, 0, 6, 4),
         Child = new TextBlock
         {
-            Text = text,
+            Text = Wrappable(text),
             FontSize = _theme.FontSize * 0.82,
             Foreground = _theme.Muted,
         },
@@ -1043,7 +1106,7 @@ public sealed class DocumentRenderer
 
     private SelectableTextBlock Caption(string text) => new()
     {
-        Text = text,
+        Text = Wrappable(text),
         FontSize = _theme.FontSize * 0.78,
         Foreground = _theme.Muted,
         TextWrapping = TextWrapping.Wrap,

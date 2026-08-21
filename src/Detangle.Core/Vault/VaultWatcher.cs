@@ -38,6 +38,7 @@ public sealed class VaultWatcher : IDisposable
     private readonly Dictionary<string, DateTime> _known = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _gate = new();
     private readonly VaultScanOptions _options;
+    private bool _disposed;
 
     /// <summary>Starts watching a vault.</summary>
     /// <param name="vault">The scanned vault.</param>
@@ -112,6 +113,14 @@ public sealed class VaultWatcher : IDisposable
     /// </summary>
     public IReadOnlyList<VaultChange> Reconcile()
     {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return [];
+            }
+        }
+
         var current = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
         try
@@ -173,6 +182,20 @@ public sealed class VaultWatcher : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            // Marked disposed under the lock before anything is torn down, so an event
+            // already on its way from the threadpool sees the flag rather than a disposed
+            // timer. An exception there is unhandled and takes the process with it.
+            _disposed = true;
+            _pending.Clear();
+        }
+
         _watcher.EnableRaisingEvents = false;
         _watcher.Dispose();
         _debounce.Dispose();
@@ -190,16 +213,32 @@ public sealed class VaultWatcher : IDisposable
 
         lock (_gate)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             // A create followed by writes is still a create; a delete after anything is a
             // delete. Collapsing here is what turns one save into one event.
             _pending[relative] = _pending.TryGetValue(relative, out VaultChangeKind existing)
                 && existing == VaultChangeKind.Added && kind == VaultChangeKind.Changed
                     ? VaultChangeKind.Added
                     : kind;
-        }
 
-        _debounce.Stop();
-        _debounce.Start();
+            // The debounce timer is restarted under the same lock that guards disposal.
+            // Filesystem events arrive on a threadpool thread and keep arriving after
+            // Dispose returns; touching a disposed timer there throws where nobody can
+            // catch it, which takes the whole process down.
+            try
+            {
+                _debounce.Stop();
+                _debounce.Start();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposed between the check and the call; the pending change is moot.
+            }
+        }
     }
 
     private void Flush()
@@ -208,7 +247,7 @@ public sealed class VaultWatcher : IDisposable
 
         lock (_gate)
         {
-            if (_pending.Count == 0)
+            if (_disposed || _pending.Count == 0)
             {
                 return;
             }
