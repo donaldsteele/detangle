@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Detangle.Core.Linking;
+using Detangle.Rendering.Diagrams;
 using Detangle.Rendering.Model;
 using SkiaSharp;
 using Svg.Skia;
@@ -86,6 +87,22 @@ public static class PdfExporter
     {
         private SKCanvas? _canvas;
         private float _y;
+
+        /// <summary>How many pages have been begun, so a block can tell it crossed one.</summary>
+        private int _pages;
+
+        /// <summary>
+        /// True while the writer is working out how tall something is. The cursor advances
+        /// as it would when drawing, but nothing is drawn and no page is turned, so a block
+        /// can be measured before the decision to place it is made.
+        /// </summary>
+        private bool _measuring;
+
+        /// <summary>The canvas to draw on, or null while measuring.</summary>
+        private SKCanvas? Ink => _measuring ? null : _canvas;
+
+        /// <summary>The space a paragraph opens with, shared so a list marker can match it.</summary>
+        private const float ParagraphLead = 6f;
         private bool _mathReported;
 
         /// <summary>Vault links written into the PDF.</summary>
@@ -131,6 +148,11 @@ public static class PdfExporter
 
             // A named destination is anchored at the top of the document's first page so
             // links between exported pages land on the page rather than near it.
+            if (_measuring)
+            {
+                return;
+            }
+
             _canvas!.DrawNamedDestinationAnnotation(
                 new SKPoint(options.Margin, _y - options.FontSize),
                 SKData.CreateCopy(Encoding.UTF8.GetBytes(DestinationOf(document.Document.RelativePath))));
@@ -159,7 +181,7 @@ public static class PdfExporter
                     break;
 
                 case ParagraphRenderBlock paragraph:
-                    Space(6);
+                    Space(ParagraphLead);
                     DrawWrapped(RunsOf(paragraph.Inlines, options.FontSize), left, width);
                     break;
 
@@ -252,6 +274,7 @@ public static class PdfExporter
 
         private void WriteIndented(IReadOnlyList<RenderBlock> blocks, float left, float width, bool rule)
         {
+            int startPage = _pages;
             float top = _y;
 
             WriteBlocks(blocks, left + 14, width - 14);
@@ -261,9 +284,22 @@ public static class PdfExporter
                 return;
             }
 
+            // A callout that runs past a page break starts again at the top of the page it
+            // finishes on. Measuring from where it began would draw the rule from a
+            // coordinate on the previous page, which came out as a bar down the full height
+            // of a nearly empty page.
+            float start = _pages == startPage
+                ? top - options.FontSize
+                : options.Margin;
+
+            if (_y - 2 <= start)
+            {
+                return;
+            }
+
             using var paint = new SKPaint { Color = new SKColor(0xB0, 0xB6, 0xBE), StrokeWidth = 2 };
 
-            _canvas.DrawLine(left + 3, top - options.FontSize, left + 3, _y - 2, paint);
+            Ink?.DrawLine(left + 3, start, left + 3, _y - 2, paint);
         }
 
         private void WriteList(ListRenderBlock list, float left, float width)
@@ -281,16 +317,27 @@ public static class PdfExporter
                         _ => "•",
                     };
 
+                // Claim room for the first line before anything is drawn. That settles which
+                // page the item starts on, so the marker and the line it belongs to cannot
+                // end up on different pages - and it means the marker can be drawn on that
+                // line's own baseline rather than guessed at from where the item began.
+                EnsureRoom(options.FontSize * 1.45f);
+
                 float top = _y;
 
+                using (var font = new SKFont(typography.Regular, options.FontSize))
+                using (var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true })
+                {
+                    // The item's first block opens with the same leading space every
+                    // paragraph gets, so the marker has to clear it too or it rides above
+                    // the words it belongs to. Space() is skipped at the top of a page,
+                    // and so is this.
+                    float lead = top > options.Margin ? ParagraphLead : 0f;
+
+                    Ink?.DrawText(marker, left + 2, top + lead + options.FontSize, SKTextAlign.Left, font, paint);
+                }
+
                 WriteBlocks(item.Blocks, left + 18, width - 18);
-
-                // The marker is drawn after the item so it sits on the item's first line,
-                // wherever the page break put that line.
-                using var font = new SKFont(typography.Regular, options.FontSize);
-                using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
-
-                _canvas?.DrawText(marker, left + 2, top + options.FontSize * 0.15f, SKTextAlign.Left, font, paint);
             }
         }
 
@@ -307,6 +354,12 @@ public static class PdfExporter
 
             foreach (TableRowRenderBlock row in table.Rows)
             {
+                // Keep the row whole. Cells are drawn by resetting the cursor to the row's
+                // top for each one, which is only meaningful while they share a page - a
+                // break inside a cell left the following cells writing against a coordinate
+                // from the page before, and the rest of the table went off the paper.
+                EnsureRoom(MeasureRow(row, left, columnWidth));
+
                 float top = _y;
                 float lowest = _y;
                 float x = left;
@@ -339,6 +392,53 @@ public static class PdfExporter
                 _y = lowest + 3;
 
                 Rule(left, width);
+            }
+        }
+
+        /// <summary>How tall a row will be, worked out by writing it with the ink off.</summary>
+        private float MeasureRow(TableRowRenderBlock row, float left, float columnWidth)
+        {
+            float start = _y;
+            bool wasMeasuring = _measuring;
+
+            _measuring = true;
+
+            try
+            {
+                float lowest = _y;
+                float x = left;
+
+                foreach (TableCellRenderBlock cell in row.Cells)
+                {
+                    float span = columnWidth * cell.ColumnSpan;
+
+                    _y = start;
+
+                    foreach (RenderBlock block in cell.Blocks)
+                    {
+                        if (block is ParagraphRenderBlock paragraph)
+                        {
+                            DrawWrapped(
+                                RunsOf(paragraph.Inlines, options.FontSize - 0.5f, bold: row.IsHeader),
+                                x + 3,
+                                span - 6);
+                        }
+                        else
+                        {
+                            Write(block, x + 3, span - 6);
+                        }
+                    }
+
+                    lowest = Math.Max(lowest, _y);
+                    x += span;
+                }
+
+                return lowest - start + 6;
+            }
+            finally
+            {
+                _measuring = wasMeasuring;
+                _y = start;
             }
         }
 
@@ -426,7 +526,15 @@ public static class PdfExporter
             {
                 using var svg = new SKSvg();
 
-                picture = svg.FromSvg(diagram.Svg);
+                // The same lookup the reader draws diagrams through. Without it the labels
+                // came out as a smudge wherever the platform's own font matching fails,
+                // which is every label on every diagram under WebAssembly.
+                DiagramTypefaces.Install(svg.Settings);
+
+                picture = svg.FromSvg(
+                    SvgTextCapability.CanDrawText
+                        ? diagram.Svg
+                        : SvgStyleFlattener.RemoveFontFamilies(diagram.Svg));
 
                 if (picture is null)
                 {
@@ -447,6 +555,14 @@ public static class PdfExporter
                 }
 
                 EnsureRoom(height);
+
+                if (_measuring)
+                {
+                    _y += height;
+                    Space(6);
+
+                    return;
+                }
 
                 _canvas!.Save();
                 _canvas.Translate(left, _y);
@@ -479,7 +595,7 @@ public static class PdfExporter
             {
                 EnsureRoom(lineHeight);
 
-                _canvas?.DrawText(Truncate(line, font, width), left + 4, _y + font.Size, SKTextAlign.Left, font, paint);
+                Ink?.DrawText(Truncate(line, font, width), left + 4, _y + font.Size, SKTextAlign.Left, font, paint);
                 _y += lineHeight;
             }
 
@@ -559,13 +675,13 @@ public static class PdfExporter
 
                     float baseline = _y + placed.Run.Size;
 
-                    _canvas?.DrawText(placed.Text, left + placed.X, baseline, SKTextAlign.Left, font, paint);
+                    Ink?.DrawText(placed.Text, left + placed.X, baseline, SKTextAlign.Left, font, paint);
 
                     if (placed.Run.Strikethrough)
                     {
                         using var strike = new SKPaint { Color = placed.Run.Color, StrokeWidth = 0.7f };
 
-                        _canvas?.DrawLine(
+                        Ink?.DrawLine(
                             left + placed.X,
                             baseline - (placed.Run.Size * 0.3f),
                             left + placed.X + placed.Width,
@@ -592,7 +708,7 @@ public static class PdfExporter
         /// <summary>Records a link annotation on the current page.</summary>
         private void Link(SKRect rect, string target, bool internalDestination)
         {
-            if (_canvas is null || target.Length == 0)
+            if (_measuring || _canvas is null || target.Length == 0)
             {
                 return;
             }
@@ -615,7 +731,7 @@ public static class PdfExporter
 
             using var paint = new SKPaint { Color = new SKColor(0xD0, 0xD5, 0xDC), StrokeWidth = 0.6f };
 
-            _canvas?.DrawLine(left, _y, left + width, _y, paint);
+            Ink?.DrawLine(left, _y, left + width, _y, paint);
             _y += 6;
         }
 
@@ -629,6 +745,11 @@ public static class PdfExporter
 
         private void EnsureRoom(float height)
         {
+            if (_measuring)
+            {
+                return;
+            }
+
             if (_canvas is null)
             {
                 Begin();
@@ -645,7 +766,12 @@ public static class PdfExporter
 
         private void Begin()
         {
-            _canvas ??= pdf.BeginPage(options.PageWidth, options.PageHeight);
+            if (_canvas is null)
+            {
+                _canvas = pdf.BeginPage(options.PageWidth, options.PageHeight);
+                _pages++;
+            }
+
             _y = options.Margin;
         }
 

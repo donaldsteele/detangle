@@ -451,7 +451,12 @@ public static class SiteExporter
                 $"<link rel=\"stylesheet\" href=\"{depth}detangle.css\" />\n");
         }
 
-        builder.Append("</head>\n<body>\n");
+        // A page with no sidebar is one column and has to say so: the stylesheet lays
+        // the body out as a two-column grid, so a lone <main> took the sidebar's column
+        // and a single-file export rendered in an 18rem strip down the left of the page.
+        builder.Append(navigation is { Length: > 0 }
+            ? "</head>\n<body>\n"
+            : "</head>\n<body class=\"single\">\n");
 
         if (navigation is { Length: > 0 })
         {
@@ -606,6 +611,10 @@ public static class SiteExporter
           display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
         }
         @media (max-width: 60rem) { body { display: block; } }
+        /* One document, no sidebar: a single centred column rather than a grid cell. */
+        body.single { display: block; }
+        body.single main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+        body.single .contents { margin-bottom: 2.5rem; }
         .sidebar {
           padding: 1.5rem 1rem; border-right: 1px solid var(--border);
           max-height: 100vh; overflow: auto; position: sticky; top: 0;
