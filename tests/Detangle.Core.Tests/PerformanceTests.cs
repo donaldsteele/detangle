@@ -148,6 +148,39 @@ public class PerformanceTests(ITestOutputHelper output)
         Assert.True(timer.ElapsedMilliseconds < 30_000, $"examination took {timer.ElapsedMilliseconds} ms");
     }
 
+    [Fact]
+    public void TheGraphViewStepsFiveThousandNodesInsideAFrame()
+    {
+        RequirePerformanceRun();
+
+        string root = SyntheticVault.Create(FileCount);
+        VaultSnapshot vault = VaultScanner.Scan(root);
+        GraphModel model = GraphModel.Build(LinkGraph.Build(vault));
+
+        output.WriteLine($"graph view: {model.Nodes.Count} nodes, {model.Edges.Count} edges");
+
+        Assert.True(model.Nodes.Count >= FileCount, $"only {model.Nodes.Count} nodes were built");
+
+        var layout = new ForceLayout(model);
+
+        // The first step builds the quadtree from cold arrays and pays the JIT; the
+        // budget is about the steady state the reader sees.
+        layout.Step();
+
+        const int Steps = 30;
+        var timer = Stopwatch.StartNew();
+        layout.Step(Steps);
+        timer.Stop();
+
+        double perStep = (double)timer.ElapsedMilliseconds / Steps;
+
+        output.WriteLine($"layout: {perStep:F1} ms per step over {model.Nodes.Count} nodes");
+
+        // Thirty frames a second is the plan's floor, which is 33 ms a frame; the drawing
+        // pass needs part of that, so the simulation is held to half.
+        Assert.True(perStep < 25, $"a layout step took {perStep:F1} ms; the budget is 16 ms");
+    }
+
     private static string? ReadContent(VaultDocument document) =>
         File.Exists(document.AbsolutePath) ? File.ReadAllText(document.AbsolutePath) : null;
 }

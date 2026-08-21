@@ -27,6 +27,7 @@ namespace Detangle.App;
 public partial class MainWindow : Window
 {
     private DocumentRenderer _renderer;
+    private GraphCanvas _graph;
     private string? _renderedPath;
 
     /// <summary>Creates the window.</summary>
@@ -46,6 +47,9 @@ public partial class MainWindow : Window
         SearchList.SelectionChanged += OnSearchSelectionChanged;
         FindingList.SelectionChanged += OnFindingSelectionChanged;
         FixAllButton.Click += OnFixAllClick;
+        _graph = CreateGraphCanvas(isDark: ActualThemeVariant == ThemeVariant.Dark);
+        GraphHost.Children.Add(_graph);
+        GraphFitButton.Click += (_, _) => _graph.FitToView();
 
         DataContextChanged += OnDataContextChanged;
         KeyDown += OnWindowKeyDown;
@@ -79,12 +83,67 @@ public partial class MainWindow : Window
                 RequestedThemeVariant = ViewModel?.IsDarkTheme == true ? ThemeVariant.Dark : ThemeVariant.Light;
                 _renderedPath = null;
                 Render();
+                ReplaceGraphCanvas();
+                break;
+
+            case nameof(ShellViewModel.GraphModel):
+                _graph.Show(ViewModel?.GraphModel ?? GraphModel.Empty);
                 break;
 
             case nameof(ShellViewModel.IsPaletteOpen) when ViewModel?.IsPaletteOpen == true:
                 PaletteBox.Focus();
                 break;
         }
+    }
+
+    /// <summary>
+    /// Builds the graph canvas. It is one control rather than one per node: the picture
+    /// is drawn, not laid out (plan.md section 6.4).
+    /// </summary>
+    private GraphCanvas CreateGraphCanvas(bool isDark)
+    {
+        var canvas = new GraphCanvas(isDark ? DocumentTheme.Dark : DocumentTheme.Light);
+
+        canvas.NodeActivated += (_, args) => ViewModel?.OpenNode(args.Node);
+        canvas.NodeHovered += OnGraphNodeHovered;
+
+        return canvas;
+    }
+
+    /// <summary>Rebuilds the canvas in the other palette, keeping the current graph.</summary>
+    private void ReplaceGraphCanvas()
+    {
+        GraphCanvas replacement = CreateGraphCanvas(ViewModel?.IsDarkTheme ?? false);
+
+        GraphHost.Children.Clear();
+        GraphHost.Children.Add(replacement);
+        _graph = replacement;
+
+        if (ViewModel?.GraphModel is { } model)
+        {
+            _graph.Show(model);
+        }
+    }
+
+    /// <summary>
+    /// Shows what the pointer is over. The graph's own status line is the only place a
+    /// reader learns that a node is a page nothing links to, or one that does not exist.
+    /// </summary>
+    private void OnGraphNodeHovered(object? sender, GraphNode? node)
+    {
+        if (ViewModel is not { IsGraphVisible: true } viewModel)
+        {
+            return;
+        }
+
+        viewModel.Status = node switch
+        {
+            null => viewModel.GraphSummary,
+            { Kind: GraphNodeKind.MissingTarget } => $"{node.Label} · no such file · {node.InboundCount} links here",
+            { Kind: GraphNodeKind.Cluster } => $"{node.Label} · {node.Weight:N0} pages · click to open the folder",
+            _ => $"{node.Id} · {node.InboundCount} in · {node.OutboundCount} out"
+                + (node.IsOrphan ? " · orphan" : string.Empty),
+        };
     }
 
     private DocumentRenderer CreateRenderer(bool isDark)
@@ -315,6 +374,11 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
+            case Key.G when control:
+                ViewModel?.ToggleGraphCommand.Execute(null);
+                e.Handled = true;
+                break;
+
             case Key.K when control:
             case Key.P when control && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
                 ViewModel?.TogglePaletteCommand.Execute(null);

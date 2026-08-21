@@ -97,6 +97,36 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private string _searchSummary = string.Empty;
 
+    [ObservableProperty]
+    private bool _isGraphVisible;
+
+    [ObservableProperty]
+    private GraphModel _graphModel = GraphModel.Empty;
+
+    [ObservableProperty]
+    private string _graphSummary = string.Empty;
+
+    [ObservableProperty]
+    private string _graphTypeFilter = string.Empty;
+
+    [ObservableProperty]
+    private string _graphTagFilter = string.Empty;
+
+    [ObservableProperty]
+    private string _graphFolderFilter = string.Empty;
+
+    [ObservableProperty]
+    private bool _isGraphLocal;
+
+    [ObservableProperty]
+    private int _graphHops = 2;
+
+    [ObservableProperty]
+    private bool _graphShowsOrphans = true;
+
+    [ObservableProperty]
+    private bool _graphShowsMissingTargets = true;
+
     /// <summary>Creates the shell.</summary>
     /// <param name="diagramRenderer">The diagram backend; defaults to Mermaider.</param>
     public ShellViewModel(IDiagramRenderer? diagramRenderer = null)
@@ -393,6 +423,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         RefreshFindings();
         RunSearch();
+        RebuildGraphIfShown();
     }
 
     /// <summary>
@@ -480,6 +511,88 @@ public sealed partial class ShellViewModel : ObservableObject
 
         return written;
     }
+
+    /// <summary>Shows or hides the graph view.</summary>
+    [RelayCommand]
+    public void ToggleGraph()
+    {
+        IsGraphVisible = !IsGraphVisible;
+
+        if (IsGraphVisible)
+        {
+            RebuildGraph();
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds the graph view's model from the current filters.
+    /// <para>
+    /// Above the level-of-detail threshold the model collapses to one node per folder.
+    /// A five thousand node hairball is not a picture of anything, and drawing it at ten
+    /// frames a second would be worse than useless (plan.md section 6.4).
+    /// </para>
+    /// </summary>
+    public void RebuildGraph()
+    {
+        if (_graph is null)
+        {
+            GraphModel = GraphModel.Empty;
+            GraphSummary = string.Empty;
+
+            return;
+        }
+
+        var options = new GraphOptions
+        {
+            Types = Split(GraphTypeFilter),
+            Tags = Split(GraphTagFilter),
+            Folder = GraphFolderFilter.Trim() is { Length: > 0 } folder ? folder : null,
+            IncludeOrphans = GraphShowsOrphans,
+            IncludeMissingTargets = GraphShowsMissingTargets,
+            Focus = IsGraphLocal ? ActiveTab?.Document : null,
+            Hops = Math.Max(1, GraphHops),
+        };
+
+        GraphModel full = GraphModel.Build(_graph, options);
+        GraphModel folded = full.WithLevelOfDetail();
+
+        GraphModel = folded;
+
+        int missing = folded.Nodes.Count(n => n.Kind == GraphNodeKind.MissingTarget);
+
+        GraphSummary = ReferenceEquals(full, folded)
+            ? $"{folded.Nodes.Count:N0} nodes · {folded.Edges.Count:N0} links · {missing:N0} missing"
+            : $"{full.Nodes.Count:N0} nodes folded into {folded.Nodes.Count:N0} folders";
+    }
+
+    /// <summary>Opens the page a graph node stands for, or drills into a folder cluster.</summary>
+    public void OpenNode(GraphNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+
+        switch (node.Kind)
+        {
+            case GraphNodeKind.Page when node.Document is { } document:
+                IsGraphVisible = false;
+                Open(document);
+                break;
+
+            case GraphNodeKind.Cluster:
+                // Clicking a folder is how the reader gets past the level-of-detail fold:
+                // filter to that folder and the pages inside it come back individually.
+                GraphFolderFilter = node.Folder;
+                RebuildGraph();
+                break;
+
+            default:
+                // A missing target has nothing to open. Phase 7 offers to create it.
+                Status = $"\"{node.Label}\" matches no file in this vault";
+                break;
+        }
+    }
+
+    private static IReadOnlyList<string> Split(string value) =>
+        [.. value.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
 
     /// <summary>Runs the current search query.</summary>
     public void RunSearch()
@@ -600,6 +713,28 @@ public sealed partial class ShellViewModel : ObservableObject
     partial void OnPaletteQueryChanged(string value) => RefreshPalette();
 
     partial void OnSearchQueryChanged(string value) => RunSearch();
+
+    partial void OnGraphTypeFilterChanged(string value) => RebuildGraphIfShown();
+
+    partial void OnGraphTagFilterChanged(string value) => RebuildGraphIfShown();
+
+    partial void OnGraphFolderFilterChanged(string value) => RebuildGraphIfShown();
+
+    partial void OnIsGraphLocalChanged(bool value) => RebuildGraphIfShown();
+
+    partial void OnGraphHopsChanged(int value) => RebuildGraphIfShown();
+
+    partial void OnGraphShowsOrphansChanged(bool value) => RebuildGraphIfShown();
+
+    partial void OnGraphShowsMissingTargetsChanged(bool value) => RebuildGraphIfShown();
+
+    private void RebuildGraphIfShown()
+    {
+        if (IsGraphVisible)
+        {
+            RebuildGraph();
+        }
+    }
 
     /// <summary>
     /// Rebuilds the palette. Documents match on path and display name, and headings of

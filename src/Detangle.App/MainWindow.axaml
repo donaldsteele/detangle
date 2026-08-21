@@ -34,7 +34,7 @@
 
       <!-- Toolbar: vault, history, theme, palette. -->
       <Border DockPanel.Dock="Top" Padding="10,8" BorderThickness="0,0,0,1" BorderBrush="#33808080">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
           <Button Grid.Column="0" Name="BackButton" Content="←" ToolTip.Tip="Back (Alt+Left)"
                   Command="{Binding GoBackCommand}" Margin="0,0,4,0" />
           <Button Grid.Column="1" Name="ForwardButton" Content="→" ToolTip.Tip="Forward (Alt+Right)"
@@ -44,7 +44,9 @@
           <TextBox Grid.Column="3" Name="VaultPathBox" Text="{Binding VaultPath}"
                    PlaceholderText="Path to a vault" />
           <Button Grid.Column="4" Name="OpenButton" Content="Open" Margin="8,0,0,0" />
-          <Button Grid.Column="5" Content="◐" ToolTip.Tip="Toggle theme"
+          <ToggleButton Grid.Column="5" Content="Graph" ToolTip.Tip="Graph view (Ctrl+G)"
+                        IsChecked="{Binding IsGraphVisible}" Margin="6,0,0,0" />
+          <Button Grid.Column="6" Content="◐" ToolTip.Tip="Toggle theme"
                   Command="{Binding ToggleThemeCommand}" Margin="6,0,0,0" />
         </Grid>
       </Border>
@@ -136,31 +138,55 @@
 
         <GridSplitter Grid.Column="1" Width="4" ResizeDirection="Columns" />
 
-        <!-- Center: tabs over the rendered document. -->
-        <DockPanel Grid.Column="2">
-          <ListBox DockPanel.Dock="Top" Name="TabStrip" ItemsSource="{Binding Tabs}"
-                   SelectedItem="{Binding ActiveTab}" MaxHeight="40"
-                   ScrollViewer.HorizontalScrollBarVisibility="Auto">
-            <ListBox.ItemsPanel>
-              <ItemsPanelTemplate>
-                <StackPanel Orientation="Horizontal" />
-              </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="app:DocumentTab">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <TextBlock Text="{Binding Title}" FontSize="12" ToolTip.Tip="{Binding Path}" />
-                  <Button Content="✕" FontSize="9" Padding="3,0" Background="Transparent"
-                          BorderThickness="0" Click="OnCloseTabClick" />
-                </StackPanel>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+        <!-- Center: tabs over the rendered document, or the graph view over the vault. -->
+        <Grid Grid.Column="2">
+          <DockPanel IsVisible="{Binding !IsGraphVisible}">
+            <ListBox DockPanel.Dock="Top" Name="TabStrip" ItemsSource="{Binding Tabs}"
+                     SelectedItem="{Binding ActiveTab}" MaxHeight="40"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="app:DocumentTab">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Title}" FontSize="12" ToolTip.Tip="{Binding Path}" />
+                    <Button Content="✕" FontSize="9" Padding="3,0" Background="Transparent"
+                            BorderThickness="0" Click="OnCloseTabClick" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
 
-          <ScrollViewer Name="DocumentScroller" Padding="28,20">
-            <ContentControl Name="DocumentHost" MaxWidth="860" HorizontalAlignment="Left" />
-          </ScrollViewer>
-        </DockPanel>
+            <ScrollViewer Name="DocumentScroller" Padding="28,20">
+              <ContentControl Name="DocumentHost" MaxWidth="860" HorizontalAlignment="Left" />
+            </ScrollViewer>
+          </DockPanel>
+
+          <!-- Graph view: filters above a canvas that draws the whole vault at once. -->
+          <DockPanel IsVisible="{Binding IsGraphVisible}">
+            <Border DockPanel.Dock="Top" Padding="8,6" BorderThickness="0,0,0,1" BorderBrush="#33808080">
+              <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBox Text="{Binding GraphTypeFilter}" PlaceholderText="type" Width="110" />
+                  <TextBox Text="{Binding GraphTagFilter}" PlaceholderText="tag" Width="110" />
+                  <TextBox Text="{Binding GraphFolderFilter}" PlaceholderText="folder" Width="150" />
+                  <CheckBox Content="Orphans" IsChecked="{Binding GraphShowsOrphans}" />
+                  <CheckBox Content="Missing" IsChecked="{Binding GraphShowsMissingTargets}" />
+                  <CheckBox Content="Local" IsChecked="{Binding IsGraphLocal}"
+                            ToolTip.Tip="Only pages within a few hops of the open one" />
+                  <NumericUpDown Value="{Binding GraphHops}" Minimum="1" Maximum="6" Width="90"
+                                 IsEnabled="{Binding IsGraphLocal}" FormatString="0" />
+                  <Button Name="GraphFitButton" Content="Fit" />
+                </StackPanel>
+                <TextBlock Text="{Binding GraphSummary}" Classes="secondary" />
+              </StackPanel>
+            </Border>
+            <Panel Name="GraphHost" />
+          </DockPanel>
+        </Grid>
 
         <GridSplitter Grid.Column="3" Width="4" ResizeDirection="Columns" />
 
