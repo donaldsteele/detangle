@@ -26,9 +26,22 @@ public class PerformanceTests(ITestOutputHelper output)
 {
     private const int FileCount = 5000;
 
+    /// <summary>
+    /// Generating and indexing a 5,000-page vault takes about a minute and leans on the
+    /// disk, which on a shared CI runner is both slow and noisy. The budgets are checked
+    /// on one job that opts in with DETANGLE_PERF=1 rather than on every job of the
+    /// matrix; locally, set it when the numbers matter.
+    /// </summary>
+    private static void RequirePerformanceRun() =>
+        Assert.SkipUnless(
+            Environment.GetEnvironmentVariable("DETANGLE_PERF") == "1",
+            "Set DETANGLE_PERF=1 to measure the phase 5 budgets.");
+
     [Fact]
     public void ColdIndexOfFiveThousandFilesIsUnderFiveSeconds()
     {
+        RequirePerformanceRun();
+
         string root = SyntheticVault.Create(FileCount);
 
         var scanTimer = Stopwatch.StartNew();
@@ -56,6 +69,8 @@ public class PerformanceTests(ITestOutputHelper output)
     [Fact]
     public void SearchAnswersFasterThanAKeystroke()
     {
+        RequirePerformanceRun();
+
         string root = SyntheticVault.Create(FileCount);
         VaultSnapshot vault = VaultScanner.Scan(root);
 
@@ -95,6 +110,8 @@ public class PerformanceTests(ITestOutputHelper output)
     [Fact]
     public void TheLinkGraphOverFiveThousandFilesIsBuiltOnce()
     {
+        RequirePerformanceRun();
+
         string root = SyntheticVault.Create(FileCount);
         VaultSnapshot vault = VaultScanner.Scan(root);
 
@@ -113,6 +130,8 @@ public class PerformanceTests(ITestOutputHelper output)
     [Fact]
     public void TheLinkDoctorExaminesFiveThousandFiles()
     {
+        RequirePerformanceRun();
+
         string root = SyntheticVault.Create(FileCount);
         VaultSnapshot vault = VaultScanner.Scan(root);
         LinkGraph graph = LinkGraph.Build(vault);

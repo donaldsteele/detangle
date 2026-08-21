@@ -39,6 +39,30 @@ jobs:
       - name: Test
         run: dotnet test Detangle.slnx --configuration Release --no-build
 
+  # The phase 5 budgets — a cold index under five seconds and a query under fifty
+  # milliseconds over a 5,000-file vault — are measured on one job rather than on every
+  # job of the matrix: generating and indexing that vault takes about a minute and leans
+  # on the disk, which is slow and noisy on a shared runner.
+  performance:
+    name: performance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Measure
+        env:
+          DETANGLE_PERF: '1'
+        run: >
+          dotnet test tests/Detangle.Core.Tests/Detangle.Core.Tests.csproj
+          --configuration Release
+          --filter-query "/*/*/PerformanceTests/*"
+          --output Detailed
+
   format:
     name: format
     runs-on: ubuntu-latest
