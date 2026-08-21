@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Detangle.Core.Vault;
@@ -178,7 +179,7 @@ public class DocumentRendererTests(HeadlessAppFixture app)
     }
 
     [Fact]
-    public void CollapsibleCalloutsRenderAsExpanders()
+    public void CollapsibleCalloutsStartClosed()
     {
         RenderDocument rendered = RenderTestVault.Build(
             ("page.md", "> [!tip]- Closed\n> Body.\n")).Render("page.md");
@@ -188,9 +189,16 @@ public class DocumentRendererTests(HeadlessAppFixture app)
             Control control = new DocumentRenderer(DocumentTheme.Light).Render(rendered);
             Layout(control);
 
-            Expander expander = Assert.Single(control.GetLogicalDescendants().OfType<Expander>());
+            // The disclosure is a toggle plus a panel rather than an Expander: Expander
+            // brings a transition, and several of them on a page can leave the measure
+            // pass never settling.
+            ToggleButton toggle = Assert.Single(
+                control.GetLogicalDescendants().OfType<ToggleButton>(), t => t is not CheckBox);
 
-            Assert.False(expander.IsExpanded);
+            Assert.False(toggle.IsChecked);
+            Assert.Contains(
+                control.GetLogicalDescendants().OfType<StackPanel>(),
+                panel => !panel.IsVisible);
         });
     }
 

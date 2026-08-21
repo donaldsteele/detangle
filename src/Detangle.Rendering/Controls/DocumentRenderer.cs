@@ -207,14 +207,7 @@ public sealed class DocumentRenderer
         else
         {
             panel.Children.Add(Caption($"{diagram.Kind.ToString().ToLowerInvariant()} diagram"));
-            panel.Children.Add(new SelectableTextBlock
-            {
-                Text = diagram.Source.TrimEnd(),
-                FontFamily = _theme.CodeFontFamily,
-                FontSize = _theme.FontSize * 0.9,
-                Foreground = _theme.Muted,
-                TextWrapping = TextWrapping.Wrap,
-            });
+            panel.Children.Add(SourceLines(diagram.Source));
         }
 
         foreach (string diagnostic in diagram.Diagnostics)
@@ -243,6 +236,44 @@ public sealed class DocumentRenderer
             Child = panel,
         };
     }
+
+    /// <summary>
+    /// Lays out source text one line per text block rather than as one wrapped block.
+    /// <para>
+    /// Wrapping multi-line source turns a fence into a wall of reflowed text, and it also
+    /// steps around a measure pass that fails to settle for certain multi-line strings
+    /// inside a bordered stack — a diagram Detangle could not draw must never be able to
+    /// hang the page it is on. Fenced code has always been drawn this way; diagram source
+    /// now matches it.
+    /// </para>
+    /// </summary>
+    private Control SourceLines(string source)
+    {
+        var lines = new StackPanel();
+
+        foreach (string line in SplitLines(source))
+        {
+            lines.Children.Add(new SelectableTextBlock
+            {
+                Text = line,
+                FontFamily = _theme.CodeFontFamily,
+                FontSize = _theme.FontSize * 0.9,
+                Foreground = _theme.Muted,
+                TextWrapping = TextWrapping.NoWrap,
+            });
+        }
+
+        return new ScrollViewer
+        {
+            Content = lines,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
+    }
+
+    /// <summary>Splits text into lines, tolerating either line ending.</summary>
+    private static string[] SplitLines(string text) =>
+        text.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
 
     private Control SvgControl(DiagramRenderBlock diagram)
     {
@@ -323,18 +354,7 @@ public sealed class DocumentRenderer
                 rows.Children.Add(Caption(note));
             }
 
-            panel.Children.Add(new Expander
-            {
-                Header = new TextBlock
-                {
-                    Text = table.QualifiedName,
-                    FontWeight = FontWeight.SemiBold,
-                    FontSize = _theme.FontSize * 0.9,
-                },
-                Content = rows,
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-            });
+            panel.Children.Add(Disclosure(table.QualifiedName, rows, startsOpen: true));
         }
 
         foreach (DbmlEnum enumeration in schema.Enums)
@@ -385,14 +405,7 @@ public sealed class DocumentRenderer
         StackPanel body = Stack(callout.Blocks);
 
         Control content = callout.IsCollapsible
-            ? new Expander
-            {
-                Header = header,
-                Content = body,
-                IsExpanded = !callout.StartsCollapsed,
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-            }
+            ? Disclosure(callout.Title, body, startsOpen: !callout.StartsCollapsed)
             : new StackPanel { Spacing = 8, Children = { header, body } };
 
         return new Border
@@ -962,6 +975,46 @@ public sealed class DocumentRenderer
         }
 
         return control;
+    }
+
+    /// <summary>
+    /// A collapsible section built from a toggle and a panel rather than from an
+    /// Expander. Expander carries a theme transition, and a page holding several of them
+    /// inside nested layout containers can leave the measure pass never settling — a
+    /// schema panel with thirty tables must not be able to hang the reader.
+    /// </summary>
+    private Control Disclosure(string header, Control content, bool startsOpen)
+    {
+        content.IsVisible = startsOpen;
+
+        var toggle = new ToggleButton
+        {
+            IsChecked = startsOpen,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0, 2),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Content = new TextBlock
+            {
+                Text = (startsOpen ? "▾ " : "▸ ") + header,
+                FontWeight = FontWeight.SemiBold,
+                FontSize = _theme.FontSize * 0.9,
+                Foreground = _theme.Foreground,
+            },
+        };
+
+        toggle.IsCheckedChanged += (_, _) =>
+        {
+            bool open = toggle.IsChecked == true;
+            content.IsVisible = open;
+
+            if (toggle.Content is TextBlock label)
+            {
+                label.Text = (open ? "▾ " : "▸ ") + header;
+            }
+        };
+
+        return new StackPanel { Spacing = 2, Children = { toggle, content } };
     }
 
     private SelectableTextBlock PlainText(string text) => new()
