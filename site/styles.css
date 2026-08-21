@@ -374,13 +374,154 @@ h1 em {
   padding: 0;
 }
 
+/* The application draws a green-to-red ledger band under its own tab strip, one segment
+   per link state. Every screenshot is topped by that same band: the frame is quoting the
+   product rather than decorating it. */
+.shot.inset .window {
+  position: relative;
+  transition: transform 320ms cubic-bezier(0.2, 0.7, 0.3, 1),
+              box-shadow 320ms ease,
+              border-color 320ms ease;
+}
+
+.shot.inset .window::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 2;
+  background: linear-gradient(90deg,
+    var(--green) 0 32%,
+    var(--accent) 32% 58%,
+    var(--orange) 58% 78%,
+    var(--red) 78% 100%);
+}
+
+.shot.inset:hover .window,
+.shot.inset:focus-within .window {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  box-shadow: 0 34px 70px -32px var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot.inset .window {
+    transition: none;
+  }
+
+  .shot.inset:hover .window,
+  .shot.inset:focus-within .window {
+    transform: none;
+  }
+}
+
+/* The screenshots are of a dark application. In the light theme a white frame around a
+   near-black picture reads as two objects arguing, so the frame keeps the artifact's own
+   palette in both themes: it belongs to what it holds, not to the page around it. */
+/* Light theme: the frame keeps the artifact's palette. These screenshots are of a dark
+   application, and a white frame around a near-black picture reads as two objects
+   arguing - the frame belongs to what it holds, not to the page around it. */
+:root[data-theme="light"] .shot.inset .window,
+:root[data-theme="light"] .shot.inset .chrome {
+  border-color: #2b3242;
+}
+
+:root[data-theme="light"] .shot.inset .window {
+  background: #11151c;
+}
+
+:root[data-theme="light"] .shot.inset .chrome {
+  background: #161b24;
+}
+
+:root[data-theme="light"] .shot.inset .chrome .title {
+  color: #79839a;
+}
+
+:root[data-theme="light"] .shot.inset .dot {
+  background: #3a4356;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .shot.inset .window,
+  :root:not([data-theme]) .shot.inset .chrome {
+    border-color: #2b3242;
+  }
+
+  :root:not([data-theme]) .shot.inset .window {
+    background: #11151c;
+  }
+
+  :root:not([data-theme]) .shot.inset .chrome {
+    background: #161b24;
+  }
+
+  :root:not([data-theme]) .shot.inset .chrome .title {
+    color: #79839a;
+  }
+
+  :root:not([data-theme]) .shot.inset .dot {
+    background: #3a4356;
+  }
+}
+
+/* Caption as a reading taken off the picture, not a description of it: what surface this
+   is, one plain sentence, then figures the reader can find in the status bar above. */
 .shot.inset figcaption {
-  margin-top: 12px;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--muted);
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-top: 16px;
   text-align: left;
-  max-width: 78ch;
+  max-width: 74ch;
+}
+
+.reading-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.reading-line {
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.readings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.reading {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--elevated);
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.reading.exact {
+  color: var(--green);
+}
+
+.reading.normalized {
+  color: var(--accent);
+}
+
+.reading.ambiguous {
+  color: var(--orange);
+}
+
+.reading.unresolved {
+  color: var(--red);
 }
 
 .shots {
