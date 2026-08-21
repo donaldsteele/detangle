@@ -15,6 +15,12 @@ publish/
 .vscode/
 !.vscode/extensions.json
 
+# The fixture vaults are identified by their marker files, and one flavour's marker is a
+# .vscode directory. Ignoring it left the foam vault undetectable in a fresh clone, which
+# only CI could see.
+!tests/fixtures/vaults/**/.vscode/
+!tests/fixtures/vaults/**/.vscode/**
+
 # Test / coverage
 TestResults/
 coverage/

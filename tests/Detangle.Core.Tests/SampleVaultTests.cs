@@ -14,23 +14,40 @@ namespace Detangle.Core.Tests;
 public class SampleVaultTests
 {
     [Theory]
-    [InlineData("Attention Is All You Need", "entities/attention-is-all-you-need.md", ResolutionRule.NormalizedName)]
-    [InlineData("self attention", "concepts/self-attention.md", ResolutionRule.NormalizedName)]
-    [InlineData("Vaswani", "entities/vaswani.md", ResolutionRule.NoteRelativePath)]
-    [InlineData("wiki/schema", "wiki/schema.md", ResolutionRule.ExactVaultPath)]
-    [InlineData("wiki/setup", "wiki/setup/index.md", ResolutionRule.FolderIndex)]
-    public void TheAdvertisedLinksResolveByTheAdvertisedRule(string target, string expected, ResolutionRule rule)
+    [InlineData("index.md", "Attention Is All You Need", "entities/attention-is-all-you-need.md", ResolutionRule.NormalizedName)]
+    [InlineData("entities/attention-is-all-you-need.md", "self attention", "concepts/self-attention.md", ResolutionRule.NormalizedName)]
+    [InlineData("entities/attention-is-all-you-need.md", "Vaswani", "entities/vaswani.md", ResolutionRule.NoteRelativePath)]
+    [InlineData("index.md", "wiki/schema", "wiki/schema.md", ResolutionRule.ExactVaultPath)]
+    [InlineData("index.md", "wiki/setup", "wiki/setup/index.md", ResolutionRule.FolderIndex)]
+    public void TheAdvertisedLinksResolveByTheAdvertisedRule(
+        string source, string target, string expected, ResolutionRule rule)
     {
-        LinkResolution resolution = Resolve(target);
+        LinkResolution resolution = Resolve(source, target);
 
         Assert.Equal(expected, resolution.Target?.RelativePath);
         Assert.Equal(rule, resolution.Rule);
     }
 
     [Fact]
+    public void TheSameLinkTextResolvesByDifferentRulesFromDifferentPages()
+    {
+        // Not a quirk - the point. "[[self attention]]" is a sibling of the page in
+        // concepts/ and a normalized-name match from anywhere else, and the chain is
+        // supposed to prefer the nearer answer. Naming the source page is what makes any
+        // assertion about a rule meaningful.
+        Assert.Equal(
+            ResolutionRule.NoteRelativePath,
+            Resolve("concepts/transformer.md", "self attention").Rule);
+
+        Assert.Equal(
+            ResolutionRule.NormalizedName,
+            Resolve("entities/attention-is-all-you-need.md", "self attention").Rule);
+    }
+
+    [Fact]
     public void TheAmbiguousLinkIsStillAmbiguous()
     {
-        LinkResolution resolution = Resolve("Transformer");
+        LinkResolution resolution = Resolve("index.md", "Transformer");
 
         Assert.True(resolution.IsAmbiguous);
         Assert.Equal(2, resolution.Candidates.Count);
@@ -42,7 +59,7 @@ public class SampleVaultTests
     [Fact]
     public void TheBrokenLinkIsStillBroken()
     {
-        LinkResolution resolution = Resolve("Dose Response");
+        LinkResolution resolution = Resolve("index.md", "Dose Response");
 
         Assert.True(resolution.IsUnresolved);
         Assert.Empty(resolution.Suggestions);
@@ -147,23 +164,26 @@ public class SampleVaultTests
         Assert.DoesNotContain(graph.Resolutions, r => r.IsUnresolved);
     }
 
-    private static LinkResolution Resolve(string target)
+    /// <summary>
+    /// Resolves one link, from a named page. The page matters: the chain prefers a
+    /// nearer answer, so the same link text legitimately resolves by different rules
+    /// depending on where it was written. Taking "whichever page came first" made this
+    /// suite depend on the order the filesystem happened to enumerate in.
+    /// </summary>
+    private static LinkResolution Resolve(string sourcePath, string target)
     {
         VaultSnapshot vault = Vault();
-        LinkResolver resolver = vault.CreateResolver();
+        VaultDocument source = vault.Index.ByRelativePath(sourcePath).Single();
 
-        foreach (VaultDocument document in vault.Documents.Where(d => d.IsMarkdown))
+        foreach (LinkResolution resolution in vault.CreateResolver().ResolveAll(source))
         {
-            foreach (LinkResolution resolution in resolver.ResolveAll(document))
+            if (string.Equals(resolution.Link.RawTarget, target, StringComparison.Ordinal))
             {
-                if (string.Equals(resolution.Link.RawTarget, target, StringComparison.Ordinal))
-                {
-                    return resolution;
-                }
+                return resolution;
             }
         }
 
-        throw new InvalidOperationException($"no link to \"{target}\" in the sample vault.");
+        throw new InvalidOperationException($"no link to \"{target}\" in {sourcePath}.");
     }
 
     private static VaultSnapshot Vault() => VaultScanner.Scan(FindFolder("samples"));

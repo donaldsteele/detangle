@@ -80,7 +80,14 @@ public static class VaultScanner
         }
 
         var diagnostics = new List<string>();
-        List<string> relativePaths = [.. ListFiles(root, options, diagnostics)];
+
+        // Sorted, because Directory.GetFiles does not promise an order and does not give
+        // the same one on every filesystem: NTFS hands back names in something close to
+        // alphabetical order and ext4 hands back whatever the directory hash produces. An
+        // application whose entire claim is that it resolves a link the same way every
+        // time cannot have its document order decided by the filesystem - two machines
+        // would disagree about which of two equally good candidates a link points at.
+        List<string> relativePaths = [.. ListFiles(root, options, diagnostics).Order(StringComparer.Ordinal)];
 
         VaultFlavor flavor = options.ForcedFlavor ?? FlavorDetector.Detect(relativePaths);
 
