@@ -15,6 +15,16 @@
     <PackageReference Include="Svg.Skia" />
   </ItemGroup>
 
+  <!--
+    Fonts are compiled in rather than looked up by name. The WebAssembly build has no
+    system fonts to search, and the faces that ship with desktop systems are missing half
+    the mathematical symbols a wiki uses - Segoe UI, Arial and Cascadia all draw an empty
+    box for the transpose sign. See THIRD-PARTY-NOTICES.md for their licences.
+  -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Detangle.Core\Detangle.Core.csproj" />
   </ItemGroup>

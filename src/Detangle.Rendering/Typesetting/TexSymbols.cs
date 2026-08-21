@@ -101,10 +101,7 @@ internal static class TexSymbols
         ["infty"] = ("∞", MathStyle.Upright),
         ["partial"] = ("∂", MathStyle.Variable),
         ["nabla"] = ("∇", MathStyle.Upright),
-        // Transpose, written as a capital T rather than U+22A4. In machine-learning notes
-        // 	op always means transpose, and the real character is missing from most text
-        // faces - including the one this application ships - where it draws as a box.
-        ["top"] = ("T", MathStyle.Upright),
+        ["top"] = ("⊤", MathStyle.Upright),
         ["bot"] = ("⊥", MathStyle.Upright),
         ["perp"] = ("⊥", MathStyle.Upright),
         ["angle"] = ("∠", MathStyle.Upright),

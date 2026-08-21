@@ -83,12 +83,18 @@ public sealed record DocumentTheme
     /// system fonts to fall back through, and the default resolved to a monospace face
     /// there, which set every page of prose in code type.
     /// </summary>
-    public FontFamily FontFamily { get; init; } =
-        new("Inter, Segoe UI, Helvetica Neue, Arial, sans-serif");
+    public FontFamily FontFamily { get; init; } = Fonts.Body;
 
-    /// <summary>Monospace family for code.</summary>
-    public FontFamily CodeFontFamily { get; init; } =
-        new("Cascadia Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace");
+    /// <summary>Monospace family for code and for identifiers.</summary>
+    public FontFamily CodeFontFamily { get; init; } = Fonts.Mono;
+
+    /// <summary>
+    /// The face mathematics is set in. A separate family because the text faces that ship
+    /// with desktop systems are missing the symbols: Segoe UI, Arial and Cascadia all lack
+    /// the transpose sign, the tensor product and the angle brackets, and draw an empty box
+    /// in their place.
+    /// </summary>
+    public FontFamily MathFontFamily { get; init; } = Fonts.Math;
 
     /// <summary>Per-callout accent colours, keyed by kind.</summary>
     public IReadOnlyDictionary<string, string> CalloutAccents { get; init; } =

@@ -63,6 +63,6 @@
     The URI addresses the copy compiled into the application, so it resolves everywhere.
   -->
   <FontFamily x:Key="UiFont">avares://Avalonia.Fonts.Inter/Assets#Inter</FontFamily>
-  <FontFamily x:Key="IdentifierFont">Cascadia Mono, JetBrains Mono, Menlo, Consolas, monospace</FontFamily>
+  <FontFamily x:Key="IdentifierFont">avares://Detangle.Rendering/Assets/Fonts#DejaVu Sans Mono</FontFamily>
 
 </ResourceDictionary>

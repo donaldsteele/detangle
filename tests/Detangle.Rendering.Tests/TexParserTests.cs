@@ -151,9 +151,7 @@ public class TexParserTests
         Assert.Contains(Flatten(row), n => n is MathFenced { Open: "(", Close: ")" });
         Assert.Contains(Flatten(row), n => n is MathFraction);
         Assert.Contains(Flatten(row), n => n is MathRadical);
-        // Transpose is set as a capital T: the real U+22A4 is missing from the shipped
-        // face and would draw as a box.
-        Assert.Contains(Flatten(row), n => n is MathAtom { Text: "T", Style: MathStyle.Upright });
+        Assert.Contains(Flatten(row), n => n is MathAtom { Text: "⊤" });
 
         // And nothing in it was left unrecognised.
         Assert.DoesNotContain(Flatten(row), n => n is MathUnknown);

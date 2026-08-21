@@ -98,7 +98,7 @@ internal sealed class MathRenderer(DocumentTheme theme)
         {
             Text = atom.Text,
             FontSize = isLarge ? size * 1.45 : size,
-            FontFamily = theme.FontFamily,
+            FontFamily = atom.Style == MathStyle.Text ? theme.FontFamily : theme.MathFontFamily,
             FontStyle = atom.Style == MathStyle.Variable ? FontStyle.Italic : FontStyle.Normal,
             Foreground = theme.Foreground,
             VerticalAlignment = VerticalAlignment.Center,
@@ -275,7 +275,7 @@ internal sealed class MathRenderer(DocumentTheme theme)
         {
             Text = text,
             FontSize = size,
-            FontFamily = theme.FontFamily,
+            FontFamily = theme.MathFontFamily,
             Foreground = theme.Foreground,
             TextWrapping = TextWrapping.NoWrap,
         },
