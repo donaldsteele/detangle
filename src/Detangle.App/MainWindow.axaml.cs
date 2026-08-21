@@ -51,6 +51,8 @@ public partial class MainWindow : Window
         GraphHost.Children.Add(_graph);
         GraphFitButton.Click += (_, _) => _graph.FitToView();
 
+        WireEditing();
+
         DataContextChanged += OnDataContextChanged;
         KeyDown += OnWindowKeyDown;
     }
@@ -88,6 +90,11 @@ public partial class MainWindow : Window
 
             case nameof(ShellViewModel.GraphModel):
                 _graph.Show(ViewModel?.GraphModel ?? GraphModel.Empty);
+                break;
+
+            case nameof(ShellViewModel.IsEditing):
+            case nameof(ShellViewModel.EditorText):
+                SyncEditor();
                 break;
 
             case nameof(ShellViewModel.IsPaletteOpen) when ViewModel?.IsPaletteOpen == true:
@@ -374,6 +381,16 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
+            case Key.E when control:
+                ViewModel?.ToggleEditCommand.Execute(null);
+                e.Handled = true;
+                break;
+
+            case Key.S when control && ViewModel?.IsEditing == true:
+                SaveWithConflictCheck();
+                e.Handled = true;
+                break;
+
             case Key.G when control:
                 ViewModel?.ToggleGraphCommand.Execute(null);
                 e.Handled = true;

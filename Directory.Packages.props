@@ -32,6 +32,19 @@
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
   </ItemGroup>
 
+  <!--
+    Export (phase 7). Both already arrive transitively through Svg.Controls.Skia.Avalonia;
+    they are pinned here because the PDF writer uses them directly, and a dependency you
+    call by name should not be one you inherited by accident. Skia is what makes a PDF
+    possible without adding a PDF library: SKDocument.CreatePdf draws the same primitives
+    the screen does, and Svg.Skia replays a rendered diagram into it as vectors rather
+    than as a screenshot.
+  -->
+  <ItemGroup Label="Export (phase 7)">
+    <PackageVersion Include="SkiaSharp" Version="4.148.0" />
+    <PackageVersion Include="Svg.Skia" Version="5.2.1" />
+  </ItemGroup>
+
   <ItemGroup Label="Search (phase 5)">
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
   </ItemGroup>

@@ -11,6 +11,8 @@
     <PackageReference Include="TextMateSharp" />
     <PackageReference Include="TextMateSharp.Grammars" />
     <PackageReference Include="Svg.Controls.Skia.Avalonia" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="Svg.Skia" />
   </ItemGroup>
 
   <ItemGroup>

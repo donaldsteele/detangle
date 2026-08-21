@@ -678,6 +678,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
     partial void OnActiveTabChanged(DocumentTab? value)
     {
+        // The editor belongs to one document. Switching tabs with it open would show one
+        // page's text over another page's preview.
+        if (_session is not null
+            && !string.Equals(_session.Document.RelativePath, value?.Document.RelativePath, StringComparison.Ordinal))
+        {
+            CloseEditor();
+        }
+
         Outline.Clear();
         Backlinks.Clear();
         Mentions.Clear();

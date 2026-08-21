@@ -5,6 +5,10 @@
 
   <Application.Styles>
     <FluentTheme />
+
+    <!-- The split editor's control template. AvaloniaEdit ships its own theme; without
+         this include the editor renders as an unstyled blank area. -->
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
   </Application.Styles>
 
 </Application>
