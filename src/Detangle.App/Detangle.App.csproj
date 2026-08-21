@@ -2,6 +2,17 @@
 
   <PropertyGroup>
     <RootNamespace>Detangle.App</RootNamespace>
+
+    <!--
+      Both heads publish this assembly trimmed — the browser head at TrimMode=full — but
+      ILLink only reports analysis warnings against the project being published, so a
+      trim-hostile call added here would be reported by neither. Turning the analyzer on
+      compiles it under the rules Detangle.Core already gets from IsAotCompatible. It is
+      EnableTrimAnalyzer rather than IsTrimmable on purpose: IsTrimmable would also opt the
+      assembly into the desktop head's partial-trim pass, which is a behaviour change
+      rather than a diagnostic.
+    -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
   </PropertyGroup>
 
   <ItemGroup>

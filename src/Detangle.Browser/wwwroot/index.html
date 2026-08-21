@@ -15,7 +15,19 @@
 
   <div id="loading" role="status">
     <p class="mark">de<span>tangle</span></p>
-    <p class="note">Loading the runtime. Nothing is fetched after this — check the network tab.</p>
+
+    <div class="progress">
+      <div class="progress-track">
+        <div class="progress-bar" id="progress-bar" role="progressbar" aria-label="Loading Detangle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+      </div>
+      <p class="progress-line">
+        <span id="progress-phase">Downloading the runtime</span>
+        <span class="progress-percent" id="progress-percent" aria-hidden="true">0%</span>
+      </p>
+      <p class="progress-detail" id="progress-detail" aria-hidden="true">0 of 0 files</p>
+    </div>
+
+    <p class="note">Nothing is fetched after this — check the network tab.</p>
   </div>
 
   <div id="out"></div>

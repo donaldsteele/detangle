@@ -7,6 +7,74 @@
     <OutputType>Exe</OutputType>
     <WasmMainJSPath>wwwroot\main.js</WasmMainJSPath>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
+
+    <!--
+      No .br and no .gz siblings. The demo is served from GitHub Pages, which compresses
+      on the fly and does not negotiate against sibling files, and dotnet.js never asks
+      for one either — grep the published loader for ".br", ".gz", "brotli" or
+      "content-encoding" and there is nothing to find. Publishing them added 22,360,259
+      bytes to the site (59,613,397 -> 37,253,138) and 22,430,154 bytes to every Pages
+      artifact upload, for files no visitor ever fetched. It changes nothing a visitor
+      downloads; it is deploy weight, not page weight.
+
+      If the site ever moves to a host that does serve precompressed siblings, this is
+      the wrong switch and the pair below is the right one:
+        <EnableDefaultCompressionFormats>false</EnableDefaultCompressionFormats>
+        <PublishCompressionFormats>brotli</PublishCompressionFormats>
+      Both are needed together: while the default flag is on, the SDK appends
+      ";gzip;brotli" to PublishCompressionFormats and setting the format alone yields
+      "brotli;gzip;brotli".
+    -->
+    <CompressionEnabled>false</CompressionEnabled>
+  </PropertyGroup>
+
+  <!--
+    Trimming. Unlike the desktop head, none of this turns trimming on: the WebAssembly SDK
+    already publishes a browser-wasm head with PublishTrimmed=true and TrimMode=full, which
+    is stricter than the desktop's "partial". Measured on this project, publishing with
+    -p:PublishTrimmed=false costs 8,315,793 gzip bytes of first paint (12,055,121 ->
+    20,370,914) and ships 140 assemblies that are otherwise gone. The properties are
+    written out so that a future SDK default cannot switch them off silently, and so this
+    file says what the demo depends on rather than inheriting it invisibly.
+
+    Deliberately not set here:
+    - TrimMode=partial. Copying the desktop head's value would make the demo bigger.
+    - ILLinkTreatWarningsAsErrors=false. The desktop head needs it because YamlDotNet and
+      Avalonia.DesignerSupport report there. This head reports nothing, so a new trim
+      warning should stop the build rather than ship a demo that renders blank.
+    - InvariantGlobalization. It looks like the largest remaining wasm knob and it is a
+      trap: with it on, an NFD "e" + U+0301 pair passed to String.Normalize(FormC) comes
+      back unchanged and IsNormalized() answers true — measured on net10.0, no exception
+      anywhere. The resolver's NFC fold in LinkNormalizer and HeadingSlugger would then
+      never match an NFD filename, which is exactly the silent failure Directory.Build.props
+      refuses. It would have bought 220,093 bytes, the one ICU shard a visitor downloads.
+    - TrimmerRootAssembly. None is needed: a full-trim publish with TrimmerSingleWarn=false
+      and SuppressTrimAnalysisWarnings=false emits no IL2xxx or IL3xxx at all.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+
+    <!-- Every trim warning at its own site, the way the desktop head reports them, so a
+         newly trim-hostile dependency is visible instead of aggregated into one line. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+
+    <!--
+      The one measured saving in this group, and it is not the trimmer's.
+      WasmNativeDebugSymbols defaults to true even in Release, which passes -g to emcc: it
+      keeps 10,703 extra functions alive in dotnet.native.wasm (32,272 -> 21,569) and stops
+      the emscripten JS minifier running at all. Turning it off is worth 85,572 gzip bytes
+      of first paint; dotnet.native.wasm loses 408,074 raw bytes and dotnet.native.js
+      another 188,931, while every managed asset stays byte-identical. What is given up is
+      native function names in a browser stack trace, on a page with no debugger attached;
+      one publish with -p:WasmNativeDebugSymbols=true brings them back when that is wanted.
+
+      Do not reach for -p:EmccLinkOptimizationFlag=-Oz alongside it. Measured: it shrinks
+      dotnet.native.wasm by 68,974 raw bytes and the result compresses so much worse that
+      first paint goes UP by 96,098.
+    -->
+    <WasmNativeDebugSymbols>false</WasmNativeDebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>

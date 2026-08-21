@@ -1,3 +1,4 @@
+using Detangle.Highlighting;
 using Detangle.Rendering.Highlighting;
 using Xunit;
 
@@ -6,7 +7,7 @@ namespace Detangle.Rendering.Tests;
 /// <summary>Tests for the TextMate-backed fence highlighter.</summary>
 public class CodeHighlighterTests
 {
-    private static readonly CodeHighlighter Highlighter = new(HighlightTheme.Dark);
+    private static readonly TextMateCodeHighlighter Highlighter = new(HighlightTheme.Dark);
 
     [Theory]
     [InlineData("csharp")]
@@ -65,4 +66,28 @@ public class CodeHighlighterTests
 
         Assert.Equal(3, lines.Count);
     }
+}
+
+/// <summary>
+/// Tests for the fallback. It is not a degenerate case any more — it is what the
+/// WebAssembly demo renders every fence with, since that head ships no grammars.
+/// </summary>
+public class PlainCodeHighlighterTests
+{
+    [Fact]
+    public void ReturnsEveryLineAsOneUnstyledSpan()
+    {
+        IReadOnlyList<IReadOnlyList<HighlightSpan>> lines =
+            PlainCodeHighlighter.Instance.Highlight("csharp", "var a = 1;\r\n\nvar b = 2;");
+
+        Assert.Equal(3, lines.Count);
+        Assert.Equal(
+            ["var a = 1;", string.Empty, "var b = 2;"],
+            lines.Select(line => Assert.Single(line).Text));
+        Assert.All(lines, line => Assert.Null(Assert.Single(line).Foreground));
+    }
+
+    [Fact]
+    public void ClaimsNoLanguage() =>
+        Assert.False(PlainCodeHighlighter.Instance.CanHighlight("csharp"));
 }

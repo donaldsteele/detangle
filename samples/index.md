@@ -42,3 +42,10 @@ $$
 > [!tip] The point
 > Nothing in this folder was cleaned up for the demo. The link text is what the model
 > wrote; the filenames are what it saved. Detangle reconciles the two and tells you how.
+
+> [!note] If you are adding a page here
+> Fenced code is deliberately unhighlighted in the browser demo. The 150 TextMate
+> grammars are 6.7 MB of the download and this wiki uses none of them, so the browser
+> build ships without them and the desktop build ships with them. A `csharp` fence added
+> to this folder will therefore look plain in the demo and coloured on the desktop, and
+> nothing will fail to warn you.

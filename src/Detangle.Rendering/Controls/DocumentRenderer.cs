@@ -32,17 +32,25 @@ public sealed record LinkActivatedEventArgs(LinkResolution Resolution, string? E
 public sealed class DocumentRenderer
 {
     private readonly DocumentTheme _theme;
-    private readonly CodeHighlighter _highlighter;
+    private readonly ICodeHighlighter _highlighter;
     private readonly IImageLoader _images;
     private readonly MathRenderer _math;
 
     /// <summary>Creates a renderer.</summary>
     /// <param name="theme">Colours and metrics.</param>
     /// <param name="images">How attachments are loaded; defaults to the filesystem.</param>
-    public DocumentRenderer(DocumentTheme? theme = null, IImageLoader? images = null)
+    /// <param name="highlighter">
+    /// The highlighter to use; defaults to whichever one the head installed. Naming one is
+    /// for tests, which run in a process no head has started and would otherwise be
+    /// asserting against whatever another test happened to install.
+    /// </param>
+    public DocumentRenderer(
+        DocumentTheme? theme = null,
+        IImageLoader? images = null,
+        ICodeHighlighter? highlighter = null)
     {
         _theme = theme ?? DocumentTheme.Light;
-        _highlighter = new CodeHighlighter(_theme.Highlighting);
+        _highlighter = highlighter ?? CodeHighlighting.For(_theme.Highlighting);
         _images = images ?? FileImageLoader.Instance;
         _math = new MathRenderer(_theme);
     }

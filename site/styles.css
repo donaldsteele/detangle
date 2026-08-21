@@ -122,6 +122,14 @@ code {
   padding: 0 22px;
 }
 
+/* Separates a second band of content from the one above it inside a single section.
+   This lives here rather than in a style attribute because the site's CSP is
+   style-src 'self' with no unsafe-inline, so an inline style is not applied at all —
+   it is silently dropped, and the only sign is a console violation nobody reads. */
+.wrap.follows {
+  margin-top: 40px;
+}
+
 /* --- header ---------------------------------------------------------------- */
 
 header {
@@ -726,6 +734,7 @@ h2 {
 /* --- demo ------------------------------------------------------------------ */
 
 .demo-frame {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
@@ -738,6 +747,56 @@ h2 {
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+/* The demo is about 11 MB of WebAssembly. loading="lazy" only postponed that until the
+   frame neared the viewport, which everybody scrolling the page reaches; this postpones
+   it to a click. Pure CSS and text, no image: the site's CSP is img-src 'self' data:,
+   and a poster that had to be downloaded to explain a download would be a poor joke. */
+
+.demo-poster {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 30px;
+  text-align: center;
+  background: radial-gradient(120% 90% at 50% 0%, var(--elevated), var(--panel) 70%);
+}
+
+/* The only state change there is. The policy is style-src 'self' with no unsafe-inline,
+   so nothing here may be done with a style attribute. */
+.demo-frame.loaded .demo-poster {
+  display: none;
+}
+
+.demo-poster-mark {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 660;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.demo-poster-mark span {
+  color: var(--accent);
+}
+
+.demo-poster-line {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--dim);
+}
+
+.demo-poster-micro {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
 
 /* --- footer ---------------------------------------------------------------- */

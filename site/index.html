@@ -331,8 +331,16 @@
       </p>
     </div>
 
-    <div class="demo-frame">
-      <iframe src="demo/" title="Detangle running in the browser" loading="lazy"></iframe>
+    <div class="demo-frame" id="demo-frame">
+      <div class="demo-poster">
+        <p class="demo-poster-mark">de<span>tangle</span></p>
+        <p class="demo-poster-line">
+          The real reader, compiled to WebAssembly — about 11 MB of .NET runtime. It does
+          not start downloading until you ask for it.
+        </p>
+        <a class="button primary" id="demo-start" href="demo/">Load the demo</a>
+        <p class="demo-poster-micro">Once, then it is cached</p>
+      </div>
     </div>
     <p class="micro">
       Same renderer, same resolver, same diagrams. The desktop build adds search, the file
@@ -362,7 +370,7 @@
     <div><strong>0 accounts</strong><span>Your wiki is just files</span></div>
   </div>
 
-  <div class="wrap" style="margin-top: 40px">
+  <div class="wrap follows">
     <div class="cards">
       <div class="card">
         <h3>It does not change your files.</h3>

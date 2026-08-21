@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Detangle.Highlighting</RootNamespace>
+
+    <!--
+      Same reason as Detangle.App: the desktop head publishes this trimmed, and ILLink
+      only reports analysis warnings against the project being published. It matters more
+      here than anywhere else in the tree, because TextMateSharp's RegistryOptions reaches
+      its grammars by string id out of embedded resources — the exact shape the trimmer
+      cannot see through.
+    -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+  <!--
+    This project exists for one reason: to keep TextMateSharp.Grammars out of a head that
+    does not want it. The package is a single 6.7 MB assembly of ~150 VS Code grammars
+    held as embedded resources, which the IL trimmer cannot touch — trimming the browser
+    publish removed 0.12% of it. Referencing it from Detangle.Rendering meant every head
+    paid for every grammar; referencing it from a leaf assembly means the head decides.
+    Measured: the WASM demo's first paint fell from 12,054,914 to 10,949,900 gzip bytes
+    when it stopped referencing this, and dotnet.native.wasm shrank with it as Onigwrap's
+    native regex engine left the runtime blob.
+  -->
+  <ItemGroup>
+    <PackageReference Include="TextMateSharp" />
+    <PackageReference Include="TextMateSharp.Grammars" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Detangle.Rendering\Detangle.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>

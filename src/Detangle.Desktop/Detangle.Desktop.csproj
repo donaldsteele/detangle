@@ -69,6 +69,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Detangle.App\Detangle.App.csproj" />
     <ProjectReference Include="..\Detangle.Rendering\Detangle.Rendering.csproj" />
+
+    <!--
+      Syntax highlighting is referenced by the head rather than by the renderer, because
+      the two heads want different answers: this one opens whatever vault a reader points
+      it at and needs every grammar, while the WebAssembly demo ships one fixed wiki and
+      would be spending a tenth of its download on grammars it never loads. Program.Main
+      installs it; without that call the app builds and runs with grey fences.
+    -->
+    <ProjectReference Include="..\Detangle.Highlighting\Detangle.Highlighting.csproj" />
   </ItemGroup>
 
 </Project>

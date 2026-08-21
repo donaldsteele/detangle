@@ -15,6 +15,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Detangle.Rendering\Detangle.Rendering.csproj" />
+
+    <!--
+      The grammar-backed highlighter no longer ships with the renderer, but its tests
+      belong next to the renderer's — a test project is never published, so referencing it
+      here costs the demo nothing.
+    -->
+    <ProjectReference Include="..\..\src\Detangle.Highlighting\Detangle.Highlighting.csproj" />
   </ItemGroup>
 
 </Project>

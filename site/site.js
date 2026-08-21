@@ -126,4 +126,34 @@
       select(guess);
     }
   }
+
+  // --- the demo loads when it is asked to ----------------------------------
+  // The demo is about 11 MB of WebAssembly runtime. The frame used to carry
+  // loading="lazy", which only postponed it until the frame neared the viewport, so
+  // anybody who scrolled past this section paid for it whether they wanted it or not.
+  // Now the poster stays until the control is used. That control is an <a href="demo/">,
+  // so with JavaScript off it still opens the demo in its own tab; all this does is
+  // upgrade it into an in-place load. The handler lives here rather than inline because
+  // the site's CSP allows no inline script beyond the hashed theme pre-paint.
+
+  var demoFrame = document.getElementById("demo-frame");
+  var demoStart = document.getElementById("demo-start");
+
+  if (demoFrame && demoStart) {
+    demoStart.addEventListener("click", function (event) {
+      // A modified click means "open it somewhere else"; leave the link alone.
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      event.preventDefault();
+
+      var frame = document.createElement("iframe");
+      frame.title = "Detangle running in the browser";
+      frame.src = "demo/";
+
+      demoFrame.classList.add("loaded");
+      demoFrame.appendChild(frame);
+    });
+  }
 })();

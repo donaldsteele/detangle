@@ -1,9 +1,17 @@
 /* The host page around the canvas. The app draws everything else itself. */
+/* The extra tokens are copied from site/styles.css rather than invented here: the
+   loading panel is the first thing a visitor sees of Detangle, and it should not look
+   like a different product from the page that linked to it. */
 :root {
   --bg: #0a0c11;
+  --raised: #232935;
   --text: #e6e9ef;
   --dim: #8a92a3;
+  --faint: #5c6473;
   --accent: #e0a33a;
+  --red: #f85149;
+  --glow: rgba(224, 163, 58, 0.16);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
 html, body {
@@ -64,4 +72,84 @@ noscript {
 
 noscript a {
   color: var(--accent);
+}
+
+/* --- the progress panel ----------------------------------------------------
+   Same amber-on-near-black and the same mono microtype as the website's .label, so the
+   wait reads as part of Detangle rather than as a framework spinner. */
+
+.progress {
+  width: min(360px, 78vw);
+  display: grid;
+  gap: 9px;
+}
+
+.progress-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--raised);
+  overflow: hidden;
+}
+
+/* The width transition is what turns per-file byte jumps into motion. Without it the
+   bar snaps, and one asset — the native runtime — is a third of the download on its
+   own, so it would snap a long way. */
+.progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+  transition: width 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.progress-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.progress-percent {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-detail {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A failed boot used to leave the page sitting on "Loading the runtime" for ever with
+   nothing anywhere to say so. */
+#loading.failed .progress-bar {
+  background: var(--red);
+  box-shadow: none;
+}
+
+#loading.failed .progress-line {
+  color: var(--red);
+}
+
+#loading.done {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar,
+  #loading.done {
+    transition: none;
+  }
 }

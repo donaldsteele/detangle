@@ -16,6 +16,16 @@ internal static class Program
         // before this point would be initialized during a silent hook for no reason.
         VelopackApp.Build().Run();
 
+        // The desktop head is the one that carries the TextMate grammars, so it is the
+        // one that switches them on. It has to precede the window, because ShellView is
+        // the only place a DocumentRenderer is constructed and a renderer picks its
+        // highlighter then. The export path below does not need it — SiteExporter emits
+        // bare <pre><code>, and the PDF writer sets its own type — so it sits above both
+        // for one reason only: there is no second place to put it that is still before
+        // AppBuilder starts. Lose this line and nothing fails; fenced code just comes out
+        // grey, which no test in this repository would notice.
+        Highlighting.TextMateCodeHighlighter.Install();
+
         // "detangle --export-site <vault> <out>" publishes without opening a window,
         // which is how this project's own documentation site is built.
         if (HeadlessExport.TryRun(args, out int exitCode))

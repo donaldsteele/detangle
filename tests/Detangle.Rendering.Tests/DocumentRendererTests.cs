@@ -5,8 +5,10 @@ using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Detangle.Core.Vault;
+using Detangle.Highlighting;
 using Detangle.Rendering.Controls;
 using Detangle.Rendering.Diagrams;
+using Detangle.Rendering.Highlighting;
 using Detangle.Rendering.Model;
 using Xunit;
 
@@ -144,7 +146,12 @@ public class DocumentRendererTests(HeadlessAppFixture app)
 
         app.Invoke(() =>
         {
-            Control control = new DocumentRenderer(DocumentTheme.Dark).Render(rendered);
+            // The highlighter is named rather than inherited: no head runs in a test
+            // process, so the renderer's own default here is the plain fallback.
+            Control control = new DocumentRenderer(
+                DocumentTheme.Dark,
+                highlighter: new TextMateCodeHighlighter(HighlightTheme.Dark)).Render(rendered);
+
             Layout(control);
 
             SelectableTextBlock codeLine = control.GetLogicalDescendants()
@@ -155,6 +162,36 @@ public class DocumentRendererTests(HeadlessAppFixture app)
 
             Assert.True(runs.Count > 1);
             Assert.Contains(runs, run => run.Foreground is not null);
+        });
+    }
+
+    /// <summary>
+    /// What the WebAssembly demo does with every fence, since it ships no grammars: one
+    /// readable monospaced line in the body colour. Not an exception, and not an empty
+    /// block.
+    /// </summary>
+    [Fact]
+    public void FencedCodeStaysReadableWithNoHighlighterInstalled()
+    {
+        RenderDocument rendered = RenderTestVault.Build(
+            ("page.md", "```csharp\nvar x = 1;\n```\n")).Render("page.md");
+
+        app.Invoke(() =>
+        {
+            Control control = new DocumentRenderer(
+                DocumentTheme.Dark,
+                highlighter: PlainCodeHighlighter.Instance).Render(rendered);
+
+            Layout(control);
+
+            SelectableTextBlock codeLine = control.GetLogicalDescendants()
+                .OfType<SelectableTextBlock>()
+                .First(block => block.Inlines?.OfType<Run>().Any() == true);
+
+            Run run = Assert.Single(codeLine.Inlines!.OfType<Run>());
+
+            Assert.Equal("var x = 1;", run.Text);
+            Assert.Equal(DocumentTheme.Dark.Foreground, run.Foreground);
         });
     }
 

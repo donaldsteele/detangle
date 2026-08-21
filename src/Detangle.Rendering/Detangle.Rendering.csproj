@@ -2,14 +2,20 @@
 
   <PropertyGroup>
     <RootNamespace>Detangle.Rendering</RootNamespace>
+
+    <!--
+      Same reason as Detangle.App, and this is the assembly with the reflection-adjacent
+      dependencies — Svg.Skia, Mermaider, Markdig's extension pipeline. ILLink reports
+      analysis warnings only against the project being published, so without this the
+      renderer's own code is trimmed by both heads and analysed by neither.
+    -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Mermaider" />
-    <PackageReference Include="TextMateSharp" />
-    <PackageReference Include="TextMateSharp.Grammars" />
     <PackageReference Include="Svg.Controls.Skia.Avalonia" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="Svg.Skia" />
