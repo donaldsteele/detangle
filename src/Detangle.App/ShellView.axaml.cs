@@ -38,7 +38,7 @@ public partial class ShellView : UserControl
 
         _renderer = CreateRenderer(isDark: ActualThemeVariant == ThemeVariant.Dark);
 
-        OpenButton.Click += async (_, _) => await ChooseVault().ConfigureAwait(true);
+        OpenButton.Click += async (_, _) => await Guarded(ChooseVault).ConfigureAwait(true);
 
         // Typing a path and pressing Enter still opens it. The button is for people who do
         // not know the path by heart, which is most people opening a folder.
@@ -98,6 +98,36 @@ public partial class ShellView : UserControl
     }
 
     private ShellViewModel? ViewModel => DataContext as ShellViewModel;
+
+    /// <summary>
+    /// Runs a click handler so that a failure is reported rather than lost.
+    /// <para>
+    /// An exception thrown out of an async event handler goes nowhere: the task is never
+    /// awaited by anyone, so the application simply appears to ignore the click. That is
+    /// exactly what opening a folder in the browser did - the reader granted permission,
+    /// something threw, and there was neither a message nor a line in the console.
+    /// </para>
+    /// </summary>
+    private async Task Guarded(Func<Task> action)
+    {
+        try
+        {
+            await action().ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            string message = $"{ex.GetType().Name}: {ex.Message}";
+
+            if (ViewModel is { } viewModel)
+            {
+                viewModel.Status = message;
+            }
+
+            // The console is the only diagnostic surface the browser build has, and this
+            // is the class of fault that leaves no other trace.
+            Console.WriteLine($"detangle: {message}");
+        }
+    }
 
     /// <summary>
     /// Asks for a folder and opens it.
@@ -216,7 +246,9 @@ public partial class ShellView : UserControl
 
         if (result.Files == 0)
         {
-            viewModel.Status = $"{folder.Name} holds nothing this reader can open.";
+            viewModel.Status = result.Failure is { Length: > 0 } failure
+                ? $"{folder.Name} could not be read: {failure}"
+                : $"{folder.Name} holds nothing this reader can open.";
 
             return;
         }

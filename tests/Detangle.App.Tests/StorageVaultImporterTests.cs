@@ -104,6 +104,29 @@ public class StorageVaultImporterTests : IDisposable
         Assert.Equal(2, result.Files);
     }
 
+    [Fact]
+    public async Task AFolderThatCannotBeListedSaysWhy()
+    {
+        // A browser throws its own interop exception type, which is none of the framework's
+        // IO exceptions. Swallowing it made granting permission to a folder look exactly
+        // like picking an empty one: nothing happened and nothing was said.
+        StorageVaultImporter.Result result = await StorageVaultImporter.ImportAsync(
+            () => throw new InvalidOperationException("the folder handle went away"), _root);
+
+        Assert.Equal(0, result.Files);
+        Assert.NotNull(result.Failure);
+        Assert.Contains("the folder handle went away", result.Failure, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AFolderThatIsMerelyEmptyBlamesNobody()
+    {
+        StorageVaultImporter.Result result = await Import();
+
+        Assert.Equal(0, result.Files);
+        Assert.Null(result.Failure);
+    }
+
     private Task<StorageVaultImporter.Result> Import(params StorageVaultImporter.Entry[] entries) =>
         StorageVaultImporter.ImportAsync(() => Enumerate(entries), _root);
 

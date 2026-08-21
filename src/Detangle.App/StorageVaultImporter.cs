@@ -34,7 +34,13 @@ public static class StorageVaultImporter
     /// <param name="Files">How many files were copied.</param>
     /// <param name="Bytes">How many bytes they came to.</param>
     /// <param name="Truncated">True when a limit stopped the copy early.</param>
-    public sealed record Result(int Files, long Bytes, bool Truncated);
+    /// <param name="Failure">
+    /// What went wrong first, or null when nothing did. A copy that reads nothing is far
+    /// more likely to be a platform refusing than a folder being empty, and the difference
+    /// has to reach the reader: the first version of this reported neither and simply
+    /// appeared to ignore the folder.
+    /// </param>
+    public sealed record Result(int Files, long Bytes, bool Truncated, string? Failure = null);
 
     /// <summary>
     /// One thing inside a picked folder: a file that can be opened, or a folder that can
@@ -72,7 +78,7 @@ public static class StorageVaultImporter
 
         await CopyFolder(entries, root, state).ConfigureAwait(false);
 
-        return new Result(state.Files, state.Bytes, state.Truncated);
+        return new Result(state.Files, state.Bytes, state.Truncated, state.Failure);
     }
 
     /// <summary>
@@ -107,8 +113,14 @@ public static class StorageVaultImporter
 
             items = collected;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
+            // Deliberately broad. Listing a folder here crosses into whatever the platform
+            // uses for storage - a browser throws its own interop exception type, which is
+            // none of the framework's IO exceptions - and an unlisted folder that reports
+            // nothing is indistinguishable from an empty one.
+            state.Failure ??= $"{ex.GetType().Name}: {ex.Message}";
+
             return;
         }
 
@@ -158,9 +170,12 @@ public static class StorageVaultImporter
             state.Files++;
             state.Bytes += written;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            // One unreadable file is not a reason to abandon the folder.
+            // One unreadable file is not a reason to abandon the folder, but the first one
+            // is worth remembering: if every file fails, that is the answer to why nothing
+            // was read.
+            state.Failure ??= $"{ex.GetType().Name}: {ex.Message}";
         }
     }
 
@@ -171,6 +186,8 @@ public static class StorageVaultImporter
         internal long Bytes { get; set; }
 
         internal bool Truncated { get; set; }
+
+        internal string? Failure { get; set; }
 
         internal bool IsFull => Files >= MaxFiles || Bytes >= MaxBytes;
     }
