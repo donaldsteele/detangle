@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Styling;
 
 namespace Detangle.App;
 
@@ -33,10 +34,11 @@ public partial class DetangleApp : Application
     public static string? StartupVault { get; set; }
 
     /// <summary>
-    /// Which palette to open in. The WASM demo starts dark because the page around it is
-    /// dark; the desktop head leaves it alone and follows its own default.
+    /// Forces a palette instead of following the operating system. The WASM demo sets it
+    /// dark because the page around it is dark; the desktop head leaves it null and takes
+    /// whatever the system is set to.
     /// </summary>
-    public static bool StartInDarkTheme { get; set; }
+    public static bool? ThemeOverride { get; set; }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -67,9 +69,20 @@ public partial class DetangleApp : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static ShellViewModel CreateShell()
+    private ShellViewModel CreateShell()
     {
-        var viewModel = new ShellViewModel { UpdateService = UpdateService, IsDarkTheme = StartInDarkTheme };
+        // Follow the desktop's own light or dark setting rather than picking one. An
+        // application that opens white on a machine set to dark has ignored the only
+        // preference its reader already expressed.
+        bool dark = ThemeOverride ?? ActualThemeVariant == ThemeVariant.Dark;
+
+        var viewModel = new ShellViewModel { UpdateService = UpdateService, IsDarkTheme = dark };
+
+        if (ThemeOverride is null)
+        {
+            ActualThemeVariantChanged += (_, _) =>
+                viewModel.FollowSystemTheme(ActualThemeVariant == ThemeVariant.Dark);
+        }
 
         if (StartupVault is { Length: > 0 } vault)
         {

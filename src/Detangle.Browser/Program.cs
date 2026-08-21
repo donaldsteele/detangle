@@ -28,7 +28,7 @@ internal static class Program
         UnpackSampleVault();
 
         DetangleApp.StartupVault = VaultPath;
-        DetangleApp.StartInDarkTheme = true;
+        DetangleApp.ThemeOverride = true;
 
         await BuildAvaloniaApp().StartBrowserAppAsync("out").ConfigureAwait(true);
     }

@@ -611,6 +611,16 @@ h2 {
   font-size: 13px;
 }
 
+/* A step is instruction rather than footnote, so it reads at body colour. */
+.os p.step {
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.os .command + .step {
+  margin-top: 16px;
+}
+
 .tabs {
   display: none;
   gap: 4px;

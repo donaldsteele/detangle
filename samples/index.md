@@ -30,6 +30,15 @@ Every link below resolves. Hover one to see which rule got it there.
 | [[wiki/getting-started]] | Callouts in both dialects, math, task lists |
 | [[entities/vaswani]] | Frontmatter references as real links |
 
+## Set in place, not fetched
+
+Diagrams, code and mathematics are all rendered in this process. No browser, no Node, no
+CDN — scaled dot-product attention divides by $\sqrt{d_k}$, and that radical is drawn here:
+
+$$
+\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
 > [!tip] The point
 > Nothing in this folder was cleaned up for the demo. The link text is what the model
 > wrote; the filenames are what it saved. Detangle reconciles the two and tells you how.

@@ -425,48 +425,64 @@
 
       <div class="os active" data-os="macos">
         <h3>macOS</h3>
+        <p class="step">
+          Download <code>Detangle-osx-arm64.dmg</code> for Apple Silicon, or
+          <code>Detangle-osx-x64.dmg</code> for Intel, from
+          <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>.
+          Open it and drag Detangle to Applications.
+        </p>
+        <p class="step">
+          The build is not notarized, so the first launch needs one extra step: right-click
+          the app and choose Open, then confirm. Or clear the quarantine flag yourself:
+        </p>
         <div class="command">
-          <span class="prompt">$ </span><span data-command>brew install --cask detangle</span>
+          <span class="prompt">$ </span><span data-command>xattr -dr com.apple.quarantine /Applications/Detangle.app</span>
           <button type="button" data-copy-command>Copy</button>
         </div>
-        <p>
-          Or download the signed, notarized
-          <a href="https://github.com/donaldsteele/detangle/releases/latest">.dmg</a> —
-          Apple Silicon and Intel are separate builds.
-        </p>
       </div>
 
       <div class="os" data-os="linux">
         <h3>Linux</h3>
+        <p class="step">
+          Download the AppImage from
+          <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>,
+          make it executable, and run it. Nothing is installed.
+        </p>
+        <div class="command">
+          <span class="prompt">$ </span><span data-command>chmod +x Detangle-linux-x64.AppImage &amp;&amp; ./Detangle-linux-x64.AppImage</span>
+          <button type="button" data-copy-command>Copy</button>
+        </div>
+        <p class="step">Or install the <code>.deb</code>, which adds a desktop entry:</p>
         <div class="command">
           <span class="prompt">$ </span><span data-command>sudo apt install ./detangle_0.1.0_amd64.deb</span>
           <button type="button" data-copy-command>Copy</button>
         </div>
         <p>
-          Or take the
-          <a href="https://github.com/donaldsteele/detangle/releases/latest">AppImage</a>
-          and <code>chmod +x</code> it. x64 and arm64 both build. The optional WebView
-          diagram backend wants <code>libwebkit2gtk-4.1-0</code>; nothing else does.
+          x64 and arm64 both build. The optional WebView diagram backend wants
+          <code>libwebkit2gtk-4.1-0</code>; nothing else does.
         </p>
       </div>
 
       <div class="os" data-os="windows">
         <h3>Windows</h3>
-        <div class="command">
-          <span class="prompt">$ </span><span data-command>winget install Detangle</span>
-          <button type="button" data-copy-command>Copy</button>
-        </div>
-        <p>
-          Or run the signed
-          <a href="https://github.com/donaldsteele/detangle/releases/latest">installer</a>.
-          x64 and arm64 both build, and updates are delta downloads after the first one.
+        <p class="step">
+          Download <code>Detangle-win-x64.exe</code> from
+          <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>
+          and run it. There is also a portable zip if you would rather not install anything.
+        </p>
+        <p class="step">
+          The build is not signed with a paid certificate, so SmartScreen will warn you the
+          first time. Choose <strong>More info</strong>, then <strong>Run anyway</strong>.
         </p>
       </div>
     </div>
 
     <p class="micro">
-      Every release ships checksums. Building from source is
-      <code>dotnet publish src/Detangle.Desktop</code> and nothing else.
+      Every release ships <code>SHA256SUMS</code>, so you can check what you downloaded is
+      what was built. Signing certificates cost money this project does not take, which is
+      the whole reason for the warnings above — the code is
+      <a href="https://github.com/donaldsteele/detangle">right here</a> if you would rather
+      build it: <code>dotnet publish src/Detangle.Desktop</code> and nothing else.
     </p>
   </div>
 </section>

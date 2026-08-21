@@ -103,7 +103,7 @@
           -->
           <TabControl Grid.Column="0" Name="LeftRail" TabStripPlacement="Left"
                       Background="{DynamicResource Panel}" BorderThickness="0,0,1,0"
-                      BorderBrush="{DynamicResource Line}" Width="294">
+                      BorderBrush="{DynamicResource Line}" Width="294" MinWidth="150">
 
             <TabItem Classes="rail" ToolTip.Tip="Files">
               <TabItem.Header>
@@ -312,7 +312,9 @@
           <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
 
           <!-- Right: what points at this page, and what it contains. -->
-          <TabControl Grid.Column="4" Name="RightRail" Background="{DynamicResource Panel}"
+          <!-- A minimum so the splitter cannot crush the rail down to clipped initials. -->
+          <TabControl Grid.Column="4" Name="RightRail" MinWidth="210"
+                      Background="{DynamicResource Panel}"
                       BorderThickness="1,0,0,0" BorderBrush="{DynamicResource Line}">
 
             <TabItem Header="Outline">

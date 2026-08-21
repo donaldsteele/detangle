@@ -377,11 +377,32 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// True until the reader picks a palette by hand. While it holds, the shell follows
+    /// the operating system; choosing one is a decision the system should not overrule.
+    /// </summary>
+    public bool FollowsSystemTheme { get; private set; } = true;
+
+    /// <summary>Applies the operating system's palette, unless the reader has chosen one.</summary>
+    public void FollowSystemTheme(bool isDark)
+    {
+        if (FollowsSystemTheme && isDark != IsDarkTheme)
+        {
+            ApplyTheme(isDark);
+        }
+    }
+
     /// <summary>Switches between the light and dark palettes and re-renders every tab.</summary>
     [RelayCommand]
     public void ToggleTheme()
     {
-        IsDarkTheme = !IsDarkTheme;
+        FollowsSystemTheme = false;
+        ApplyTheme(!IsDarkTheme);
+    }
+
+    private void ApplyTheme(bool isDark)
+    {
+        IsDarkTheme = isDark;
 
         if (_vault is null)
         {

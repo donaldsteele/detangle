@@ -40,6 +40,25 @@ export writes plain HTML.
 
 Thirteen conventions, detected automatically — see [[formats]].
 
+## Why does my system warn me when I open it?
+
+Because the build is not signed. Code signing certificates are a recurring cost — Apple
+charges ninety-nine dollars a year, and a Windows certificate is a monthly fee — and this
+project does not take money, so it does not pay them.
+
+Nothing is wrong with the download. The warning means the operating system cannot identify
+who published it, not that it found a problem.
+
+- **macOS**: right-click the app and choose Open, then confirm. Or run
+  `xattr -dr com.apple.quarantine /Applications/Detangle.app`.
+- **Windows**: SmartScreen shows "Windows protected your PC". Choose More info, then Run
+  anyway.
+- **Linux**: no warning; make the AppImage executable and run it.
+
+Every release ships a `SHA256SUMS` file, so you can verify a download matches what the
+build produced. The source is public and the build is one command, which is a stronger
+guarantee than a certificate anyway.
+
 ## Why is the download 60 MB?
 
 It is self-contained: the .NET runtime, Skia, the syntax-highlighting grammars and the

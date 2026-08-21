@@ -33,6 +33,7 @@ public sealed class DocumentRenderer
     private readonly DocumentTheme _theme;
     private readonly CodeHighlighter _highlighter;
     private readonly IImageLoader _images;
+    private readonly MathRenderer _math;
 
     /// <summary>Creates a renderer.</summary>
     /// <param name="theme">Colours and metrics.</param>
@@ -42,6 +43,7 @@ public sealed class DocumentRenderer
         _theme = theme ?? DocumentTheme.Light;
         _highlighter = new CodeHighlighter(_theme.Highlighting);
         _images = images ?? FileImageLoader.Instance;
+        _math = new MathRenderer(_theme);
     }
 
     /// <summary>Raised when a link in a rendered document is clicked.</summary>
@@ -575,25 +577,25 @@ public sealed class DocumentRenderer
     }
 
     /// <summary>
-    /// Renders block math as its TeX source in a bordered card. KaTeX layout needs a
-    /// JavaScript host, which arrives with phase 3's WebView backend; showing the source
-    /// verbatim until then is honest, and it keeps the equation selectable and copyable.
+    /// Sets display math, centred on its own line.
+    /// <para>
+    /// Typeset in process by <see cref="MathRenderer"/> rather than by KaTeX. The plan
+    /// called for KaTeX, but it needs a JavaScript host, and an application whose whole
+    /// claim is that it renders everything offline cannot reach for a browser to draw an
+    /// equation. Notation the parser does not know is shown as its own source, marked, so
+    /// the reader can tell what was understood from what was not.
+    /// </para>
     /// </summary>
-    private Control Math(MathRenderBlock math) => new Border
+    private Control Math(MathRenderBlock math) => new ScrollViewer
     {
-        Background = _theme.CodeBackground,
-        BorderBrush = _theme.Border,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(6),
-        Padding = new Thickness(14, 10),
-        Child = new StackPanel
+        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+        VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        Margin = new Thickness(0, 4),
+        Content = new Border
         {
-            Spacing = 4,
-            Children =
-            {
-                Caption("math"),
-                SourceLines(math.Source, _theme.Foreground, _theme.FontSize),
-            },
+            Padding = new Thickness(0, 10),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = _math.Render(math.Source, _theme.FontSize, isBlock: true),
         },
     };
 
@@ -834,11 +836,9 @@ public sealed class DocumentRenderer
                 break;
 
             case MathRun math:
-                target.Add(new Run(Wrappable(math.Source))
-                {
-                    FontFamily = _theme.CodeFontFamily,
-                    Foreground = _theme.Muted,
-                });
+                // Inline math is set at the surrounding size and sits on the text's own
+                // line, so "the $\sqrt{d_k}$ term" reads as one sentence.
+                target.Add(new InlineUIContainer(_math.Render(math.Source, _theme.FontSize, isBlock: false)));
                 break;
 
             case TagRun tag:
