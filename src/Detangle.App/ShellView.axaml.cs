@@ -293,6 +293,12 @@ public partial class ShellView : UserControl
         // and that happens before there is a view to hear the change.
         ApplyTheme(viewModel.IsDarkTheme);
 
+        // And the graph canvas is built with the palette that was current when this view
+        // was constructed, which is the default one. Arriving already dark left it drawing
+        // a white sheet inside a dark window, because only a *change* of palette replaced
+        // it. Rebuilding it here costs nothing and is correct either way.
+        ReplaceGraphCanvas();
+
         Render();
     }
 

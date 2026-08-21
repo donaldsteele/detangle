@@ -29,6 +29,9 @@ Every link below resolves. Hover one to see which rule got it there.
 | [[wiki/schema]] | DBML parsed here, drawn as an ER diagram |
 | [[wiki/getting-started]] | Callouts in both dialects, math, task lists |
 | [[entities/vaswani]] | Frontmatter references as real links |
+| [[How These Links Resolved]] | Every link syntax, and the rule that answered each one |
+| [[What Happens When You Open a Folder]] | A state diagram, and the resolution chain drawn |
+| [[Attention Variants]] | A sequence diagram, a table, mathematics and task lists together |
 
 ## Set in place, not fetched
 

@@ -161,4 +161,19 @@ public class GraphViewTests
 
         throw new DirectoryNotFoundException("tests/fixtures was not found above the test binaries.");
     }
+
+    [Fact]
+    public void ShowingTheGraphByThePropertyBuildsItToo()
+    {
+        // The toolbar button binds IsChecked straight to this property and calls no
+        // command, so the graph it opened was always empty while Ctrl+G showed a real one.
+        // Every test here drove the command, which is exactly the route that worked.
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        Assert.Empty(shell.GraphModel.Nodes);
+
+        shell.IsGraphVisible = true;
+
+        Assert.NotEmpty(shell.GraphModel.Nodes);
+    }
 }

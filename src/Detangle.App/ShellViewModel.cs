@@ -643,11 +643,21 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Shows or hides the graph view.</summary>
     [RelayCommand]
-    public void ToggleGraph()
-    {
-        IsGraphVisible = !IsGraphVisible;
+    public void ToggleGraph() => IsGraphVisible = !IsGraphVisible;
 
-        if (IsGraphVisible)
+    /// <summary>
+    /// Builds the graph the moment it is asked for, however it was asked for.
+    /// <para>
+    /// The rebuild used to live in <see cref="ToggleGraph"/>, which the toolbar button
+    /// never calls: it binds IsChecked straight to the property, so pressing it showed an
+    /// empty canvas while Ctrl+G showed a graph. Hanging the work on the property means
+    /// every route into it - button, shortcut, command palette, a future one - gets the
+    /// same behaviour.
+    /// </para>
+    /// </summary>
+    partial void OnIsGraphVisibleChanged(bool value)
+    {
+        if (value)
         {
             RebuildGraph();
         }
