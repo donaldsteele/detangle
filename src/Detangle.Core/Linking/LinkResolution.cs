@@ -73,8 +73,23 @@ public sealed class LinkResolution
     /// <summary>
     /// Near misses from chain step 12, offered when nothing resolved. Never navigated to
     /// automatically — that is the whole point of keeping fuzzy matching separate.
+    /// <para>
+    /// Computed on first read rather than during resolution. Finding near misses means an
+    /// edit-distance pass over the vault's names, and a wiki with a thousand broken links
+    /// would pay for a thousand of those every time its graph was built — while nothing
+    /// but the Link Doctor and an unresolved link's own tooltip ever asks.
+    /// </para>
     /// </summary>
-    public IReadOnlyList<VaultDocument> Suggestions { get; init; } = [];
+    public IReadOnlyList<VaultDocument> Suggestions
+    {
+        get => _suggestions ??= SuggestionSource?.Invoke() ?? [];
+        init => _suggestions = value;
+    }
+
+    /// <summary>Supplies suggestions the first time they are asked for.</summary>
+    internal Func<IReadOnlyList<VaultDocument>>? SuggestionSource { get; init; }
+
+    private IReadOnlyList<VaultDocument>? _suggestions;
 
     /// <summary>How the fragment resolved inside the target.</summary>
     public AnchorResolution Anchor { get; init; } = AnchorResolution.None;

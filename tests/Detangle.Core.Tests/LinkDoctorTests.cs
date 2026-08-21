@@ -13,7 +13,7 @@ namespace Detangle.Core.Tests;
 public class LinkDoctorTests
 {
     [Fact]
-    public void ReportsBrokenLinksWithTheirLineAndBestCandidate()
+    public void ReportsBrokenLinksWithTheirLine()
     {
         Finding finding = Assert.Single(
             Examine(("page.md", "# Page\n\nSee [[attentin]].\n"), ("attention.md", "# Attention")),
@@ -21,8 +21,33 @@ public class LinkDoctorTests
 
         Assert.Equal(FindingSeverity.Error, finding.Severity);
         Assert.Equal(3, finding.Line);
-        Assert.Equal("attention", finding.SuggestedRewrite);
-        Assert.Contains(finding.Related, d => d.RelativePath == "attention.md");
+
+        // Examining does not go looking for near misses: that pass costs an edit-distance
+        // sweep over every name in the vault, and it is run for the finding a reader
+        // actually opens rather than for the thousands they do not.
+        Assert.Null(finding.SuggestedRewrite);
+    }
+
+    [Fact]
+    public void SuggestingAFixFindsTheNearestName()
+    {
+        Finding finding = Assert.Single(
+            Examine(("page.md", "# Page\n\nSee [[attentin]].\n"), ("attention.md", "# Attention")),
+            f => f.Kind == FindingKind.BrokenLink);
+
+        Finding suggested = LinkDoctor.SuggestFix(finding);
+
+        Assert.Equal("attention", suggested.SuggestedRewrite);
+        Assert.Contains(suggested.Related, d => d.RelativePath == "attention.md");
+    }
+
+    [Fact]
+    public void SuggestingAFixLeavesOtherFindingKindsAlone()
+    {
+        Finding orphan = Assert.Single(
+            Examine(("lonely.md", "# Lonely\n")), f => f.Kind == FindingKind.OrphanPage);
+
+        Assert.Same(orphan, LinkDoctor.SuggestFix(orphan));
     }
 
     [Fact]

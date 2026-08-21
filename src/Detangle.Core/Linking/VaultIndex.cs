@@ -24,6 +24,7 @@ public sealed class VaultIndex
     private readonly Dictionary<string, List<VaultDocument>> _byIdentifier = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<VaultDocument>> _byFileName = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<VaultDocument>> _byBlockAnchor = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string[]> _normalizedSegments = new(StringComparer.Ordinal);
     private readonly HashSet<string> _directories = new(StringComparer.Ordinal);
 
     private VaultIndex(IReadOnlyList<VaultDocument> documents)
@@ -109,8 +110,10 @@ public sealed class VaultIndex
 
         foreach (VaultDocument candidate in candidates)
         {
-            string[] path = LinkNormalizer.NormalizePath(candidate.RelativePath)
-                .Split('/', StringSplitOptions.RemoveEmptyEntries);
+            // Normalizing a path is not free, and a suffix probe asks about the same
+            // documents over and over across a vault's worth of links, so each one is
+            // normalized once at build time and looked up here.
+            string[] path = _normalizedSegments[candidate.RelativePath];
 
             if (path.Length < segments.Length)
             {
@@ -283,7 +286,9 @@ public sealed class VaultIndex
 
         Index(_byRelativePath, path, document);
         Index(_byRelativePath, LinkNormalizer.StripKnownExtension(path), document);
-        Index(_byNormalizedPath, LinkNormalizer.NormalizePath(path), document);
+        string normalizedPath = LinkNormalizer.NormalizePath(path);
+        Index(_byNormalizedPath, normalizedPath, document);
+        _normalizedSegments[path] = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
         Index(_byFileName, Path.GetFileName(path), document);
 
         Index(_byStem, document.Stem, document);

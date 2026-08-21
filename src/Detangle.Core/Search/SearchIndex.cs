@@ -92,11 +92,18 @@ public sealed class SearchIndex : IDisposable
             clear.ExecuteNonQuery();
         }
 
+        // The statements are prepared once and reused for every row. Creating a command
+        // per insert means SQLite parses the same SQL tens of thousands of times, which
+        // was the difference between a five-thousand-file vault indexing in seconds and
+        // in the better part of a minute — the table was already empty, so no per-document
+        // delete is needed either.
+        using var writer = new IndexWriter(_connection, transaction);
+
         foreach (VaultDocument document in vault.Documents.Where(d => d.IsMarkdown))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            IndexDocument(document, contentReader(document), transaction);
+            writer.Write(document, contentReader(document));
         }
 
         transaction.Commit();
@@ -107,7 +114,11 @@ public sealed class SearchIndex : IDisposable
     {
         using SqliteTransaction transaction = _connection.BeginTransaction();
 
-        IndexDocument(document, content, transaction);
+        using (var writer = new IndexWriter(_connection, transaction))
+        {
+            writer.Delete(document.RelativePath);
+            writer.Write(document, content);
+        }
 
         transaction.Commit();
     }
@@ -276,69 +287,6 @@ public sealed class SearchIndex : IDisposable
             """;
 
         command.ExecuteNonQuery();
-    }
-
-    private void IndexDocument(VaultDocument document, string? content, SqliteTransaction transaction)
-    {
-        using (SqliteCommand delete = _connection.CreateCommand())
-        {
-            delete.Transaction = transaction;
-            delete.CommandText = """
-                DELETE FROM sections WHERE path = $path;
-                DELETE FROM documents WHERE path = $path;
-                """;
-            delete.Parameters.AddWithValue("$path", document.RelativePath);
-            delete.ExecuteNonQuery();
-        }
-
-        using (SqliteCommand insert = _connection.CreateCommand())
-        {
-            insert.Transaction = transaction;
-            insert.CommandText = """
-                INSERT INTO documents(path, title, type, status, author, id, tags, created, updated)
-                VALUES($path, $title, $type, $status, $author, $id, $tags, $created, $updated)
-                """;
-
-            insert.Parameters.AddWithValue("$path", document.RelativePath);
-            insert.Parameters.AddWithValue("$title", (object?)document.DisplayName ?? DBNull.Value);
-            insert.Parameters.AddWithValue("$type", (object?)document.Frontmatter.Type ?? DBNull.Value);
-            insert.Parameters.AddWithValue("$status", (object?)document.Frontmatter.Status ?? DBNull.Value);
-            insert.Parameters.AddWithValue(
-                "$author", document.Frontmatter.Authors.Count > 0 ? document.Frontmatter.Authors[0] : DBNull.Value);
-            insert.Parameters.AddWithValue("$id", (object?)document.Frontmatter.Id ?? DBNull.Value);
-            insert.Parameters.AddWithValue("$tags", string.Join(' ', document.Frontmatter.Tags));
-            insert.Parameters.AddWithValue(
-                "$created",
-                document.Frontmatter.Created?.ToUnixTimeSeconds() ?? (object)DBNull.Value);
-            insert.Parameters.AddWithValue(
-                "$updated",
-                document.Frontmatter.Updated?.ToUnixTimeSeconds()
-                    ?? document.LastModified.ToUnixTimeSeconds());
-
-            insert.ExecuteNonQuery();
-        }
-
-        if (content is null)
-        {
-            return;
-        }
-
-        foreach ((string? heading, string body, int line) in Sections(content))
-        {
-            using SqliteCommand insert = _connection.CreateCommand();
-            insert.Transaction = transaction;
-            insert.CommandText = """
-                INSERT INTO sections(path, heading, body, line)
-                VALUES($path, $heading, $body, $line)
-                """;
-
-            insert.Parameters.AddWithValue("$path", document.RelativePath);
-            insert.Parameters.AddWithValue("$heading", (object?)heading ?? DBNull.Value);
-            insert.Parameters.AddWithValue("$body", body);
-            insert.Parameters.AddWithValue("$line", line);
-
-            insert.ExecuteNonQuery();
-        }
     }
 
     /// <summary>

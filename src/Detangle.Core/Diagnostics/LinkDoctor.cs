@@ -156,10 +156,11 @@ public static class LinkDoctor
                     Line = resolution.Link.Line,
                     Resolution = resolution,
                     Message = $"\"{resolution.Link.RawTarget}\" matches no file in this vault.",
-                    SuggestedRewrite = resolution.Suggestions.Count > 0
-                        ? CanonicalTargetFor(document, resolution.Suggestions[0])
-                        : null,
-                    Related = resolution.Suggestions,
+
+                    // No fuzzy candidates are asked for here. Finding near misses means an
+                    // edit-distance pass over every name in the vault, and examining a
+                    // 5,000-file wiki would spend most of its time on suggestions for
+                    // findings the reader may never open. SuggestFix does it on demand.
                 };
 
                 continue;
@@ -326,6 +327,33 @@ public static class LinkDoctor
     /// </summary>
     public static string CanonicalTargetFor(VaultDocument source, VaultDocument target) =>
         LinkNormalizer.StripKnownExtension(target.RelativePath);
+
+    /// <summary>
+    /// Works out what a broken link probably meant, and returns the finding with the
+    /// rewrite and the candidates filled in.
+    /// <para>
+    /// This is separate from <see cref="Examine"/> on purpose: the fuzzy search behind it
+    /// costs an edit-distance pass over the vault's names, which is worth paying for the
+    /// finding a reader is looking at and not for the several thousand they are not.
+    /// </para>
+    /// </summary>
+    public static Finding SuggestFix(Finding finding)
+    {
+        if (finding.Kind != FindingKind.BrokenLink || finding.Resolution is not { } resolution)
+        {
+            return finding;
+        }
+
+        IReadOnlyList<VaultDocument> suggestions = resolution.Suggestions;
+
+        return finding with
+        {
+            SuggestedRewrite = suggestions.Count > 0
+                ? CanonicalTargetFor(finding.Document, suggestions[0])
+                : null,
+            Related = suggestions,
+        };
+    }
 
     /// <summary>
     /// Rewrites a link in a document's text to its canonical target, returning the new

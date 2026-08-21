@@ -282,6 +282,9 @@ public partial class MainWindow : Window
     {
         if (FindingList.SelectedItem is Detangle.Core.Diagnostics.Finding finding)
         {
+            // Suggestions for a broken link are worked out when one is opened, not for
+            // every finding in the vault; the search behind them is not cheap.
+            ViewModel?.Suggest(finding);
             ViewModel?.Open(finding.Document);
         }
     }

@@ -421,6 +421,25 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Fills in what a broken link probably meant, in place, the first time a reader
+    /// opens that finding.
+    /// </summary>
+    public void Suggest(Finding finding)
+    {
+        if (finding.Kind != FindingKind.BrokenLink || finding.SuggestedRewrite is not null)
+        {
+            return;
+        }
+
+        int index = Findings.IndexOf(finding);
+
+        if (index >= 0)
+        {
+            Findings[index] = LinkDoctor.SuggestFix(finding);
+        }
+    }
+
+    /// <summary>
     /// Applies every safe fix — the links that resolved through steps 4 to 8 and have
     /// exactly one canonical form — and returns how many files were rewritten.
     /// </summary>
