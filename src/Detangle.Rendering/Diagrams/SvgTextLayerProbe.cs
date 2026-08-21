@@ -97,6 +97,21 @@ public static class SvgTextLayerProbe
         text.AppendLine("  a face without one falls through to SkiaSharp's own text drawing.");
         text.AppendLine();
 
+        // Asking the built-in providers directly, rather than inferring what they did from
+        // what got drawn. They are public types, so this is the actual answer the renderer
+        // receives for the family a diagram names.
+        text.AppendLine("  what Svg.Skia's own providers answer");
+        text.AppendLine("  -----------------------------------");
+
+        foreach (string family in new[] { "sans-serif", "Inter", "monospace" })
+        {
+            text.AppendLine($"  \"{family}\"");
+            text.AppendLine("    FontManagerTypefaceProvider  " + Answer(new FontManagerTypefaceProvider(), family));
+            text.AppendLine("    DefaultTypefaceProvider      " + Answer(new DefaultTypefaceProvider(), family));
+        }
+
+        text.AppendLine();
+
         text.AppendLine("  layer          face          M span   MMMM span   ratio   verdict");
         text.AppendLine("  -----          ----          ------   ---------   -----   -------");
 
@@ -251,6 +266,27 @@ public static class SvgTextLayerProbe
             $"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{Width}\" height=\"{Height}\">"
             + $"<text x=\"2\" y=\"{Baseline}\" font-size=\"{Size}\" font-weight=\"400\"{attribute} "
             + $"fill=\"#ffffff\">{new string('M', letters)}</text></svg>");
+    }
+
+    /// <summary>What one provider returns for one family, said plainly.</summary>
+    private static string Answer(ITypefaceProvider provider, string family)
+    {
+        try
+        {
+            SKTypeface? typeface = provider.FromFamilyName(
+                family,
+                SKFontStyleWeight.Normal,
+                SKFontStyleWidth.Normal,
+                SKFontStyleSlant.Upright);
+
+            return typeface is null
+                ? "null - declines to answer"
+                : $"\"{typeface.FamilyName}\"";
+        }
+        catch (Exception ex)
+        {
+            return $"{ex.GetType().Name}: {ex.Message}";
+        }
     }
 
     private static string Describe(SKTypeface? typeface)

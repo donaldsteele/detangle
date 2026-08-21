@@ -1,0 +1,7 @@
+<Project>
+  <!--
+    Deliberately empty: this project is a self-contained reproduction meant to be handed to
+    somebody else, so it must not inherit Detangle's build settings, analyzers or version
+    pins. Anything it needs, it states itself.
+  -->
+</Project>

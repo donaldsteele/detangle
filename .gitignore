@@ -62,3 +62,8 @@ tools/decomp/
 # tools/repro/ and in SvgTextSelfTest, which are committed. Kept out of the tree so
 # "git add -A" cannot drag four throwaway Program files into a review.
 tools/shimprobe/
+
+# Publish output from the standalone Svg.Skia reproduction. The project is committed; what
+# it builds is 10 MB of runtime that belongs in a tmp directory.
+tools/repro/SvgTextWasmRepro/bin/
+tools/repro/SvgTextWasmRepro/obj/

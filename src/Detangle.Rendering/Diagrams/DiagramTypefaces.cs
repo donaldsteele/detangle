@@ -8,25 +8,27 @@ namespace Detangle.Rendering.Diagrams;
 /// <summary>
 /// Gives the diagram renderer a font lookup that always answers.
 /// <para>
-/// Svg.Skia ships two typeface providers and asks each in turn. Both do the same thing:
-/// resolve the family, then check the face they got back actually corresponds to the name
-/// that was asked for — its family name matches, or it is the platform default answering
-/// to its own name, or a generic name resolved to something other than the default. A face
-/// that passes none of those is discarded and the provider returns nothing.
+/// Svg.Skia ships two typeface providers and asks each in turn. Both resolve the family and
+/// then check the face they got back corresponds to the name asked for; a face that fails
+/// that check is discarded and the provider returns nothing. On a platform with one font
+/// the check can never pass — WebAssembly resolves every family to the single embedded
+/// face, whose name is not the requested one and which is also the platform default — so
+/// both providers return null for every family a diagram names.
 /// </para>
 /// <para>
-/// On a platform with one font, that test can never pass. WebAssembly resolves every
-/// family — "sans-serif", "Inter", anything — to the single embedded face, Noto Mono. Its
-/// name is not the name that was asked for, and it *is* the platform default, which is
-/// what disqualifies it under the generic-name rule as well. So both providers return
-/// null for every family a diagram names, and the drawing that follows a null typeface is
-/// the one that paints every glyph of a label at the same point.
+/// A null from the providers is not itself what breaks the drawing. What breaks it is
+/// downstream, in Svg.Skia's per-character font fallback: when no font claims a character
+/// it clears the running font's typeface, a font with no typeface reports no metrics, and
+/// the span advances measured against it all come back zero. The caller positions each span
+/// by accumulating those advances, so an entire label is painted at one x. The full
+/// derivation, a reproduction and a patch are in tools/repro/.
 /// </para>
 /// <para>
-/// The remedy is to answer before they do, with the best match the platform can offer and
-/// no opinion about what it is called. <see cref="SvgTextLayerProbe"/> measures it: the
-/// same document that spans 12 pixels through the default lookup spans 55 through this
-/// one, on the same platform, with the same face.
+/// Answering before the built-ins keeps the renderer out of that path, because the family
+/// resolves and the per-character fallback is never asked. It is a workaround for a defect
+/// in a dependency, and it is a cheap and total one: <see cref="SvgTextSelfTest"/> measures
+/// four of sixteen probe documents drawing correctly without it and sixteen of sixteen with
+/// it, on the same platform, with the same face.
 /// </para>
 /// </summary>
 public static class DiagramTypefaces

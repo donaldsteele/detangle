@@ -74,13 +74,14 @@ internal static partial class SvgStyleFlattener
     /// <see cref="DiagramTypefaces"/> — the actual fix — failed to help.
     /// </para>
     /// <para>
-    /// WebAssembly was the platform this was written for, and it no longer needs it: the
-    /// collapse there was Svg.Skia's font lookup returning nothing, not the family reaching
-    /// the text. Giving the renderer a lookup that always resolves takes the same sixteen
-    /// probe documents from 4 of 16 drawing correctly to 16 of 16. Nothing measures as
-    /// needing this any more; it is kept because a lookup that cannot answer is a shape
-    /// another platform could arrive at, and readable labels beat correct ones nobody can
-    /// read.
+    /// WebAssembly was the platform this was written for, and it no longer needs it. The
+    /// collapse there was never about the family reaching the text: an unresolvable family
+    /// sends Svg.Skia into a per-character fallback that measures spans against a font with
+    /// no typeface and gets zero advances, so the label is painted at one x.
+    /// <see cref="DiagramTypefaces"/> keeps the renderer out of that path and takes the same
+    /// sixteen probe documents from 4 of 16 drawing correctly to 16 of 16. Nothing measures
+    /// as needing this any more; it is kept because zero advances are a shape another
+    /// platform could arrive at, and readable labels beat correct ones nobody can read.
     /// </para>
     /// <para>
     /// Do not "improve" this by rewriting the declaration into a <c>font-family</c>

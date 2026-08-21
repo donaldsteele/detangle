@@ -337,11 +337,13 @@ public sealed class DocumentRenderer
     /// <summary>
     /// Parses a diagram's SVG through a font lookup that always resolves to a face.
     /// <para>
-    /// Svg.Skia's own lookup can return nothing — it refuses a face whose family name is
-    /// not the one that was asked for — and a label drawn with no typeface has every glyph
-    /// painted at the same point. On WebAssembly, where one embedded font answers to every
-    /// family name and to none of them, that is what happened to every diagram label.
-    /// <see cref="DiagramTypefaces"/> answers first, so the lookup always succeeds.
+    /// Svg.Skia's own lookup can return nothing — it refuses a face whose family name is not
+    /// the one asked for — and a family it could not resolve sends the renderer into a
+    /// per-character fallback that measures every span against a font with no typeface, gets
+    /// zero advances back, and paints the whole label at one x. On WebAssembly, where one
+    /// embedded font answers to every family name and to none of them, that happened to
+    /// every diagram label. <see cref="DiagramTypefaces"/> answers first, so the family
+    /// always resolves and that path is never entered.
     /// </para>
     /// <para>
     /// The stripping below is what this repository shipped before the cause was found, and

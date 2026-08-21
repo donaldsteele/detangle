@@ -1,0 +1,81 @@
+From a9ce456837338281567955cc36e4606a2ed4f3ba Mon Sep 17 00:00:00 2001
+From: Don Steele <don.steele@gmail.com>
+Date: Fri, 21 Aug 2026 14:58:29 -0400
+Subject: [PATCH] Keep run typeface when character fallback finds nothing
+
+FindTypefaces cleared the running font's typeface whenever per-character
+fallback returned no match. A font with no typeface has no metrics, so
+GetTextAdvance returned 0 for every span it then yielded. Callers position
+consecutive spans by accumulating those advances, so the whole run was drawn
+at one x and the text rendered as a single dense mark.
+
+Keeping the face already resolved for the run preserves its metrics, so an
+unmatched character degrades to a missing-glyph box instead of collapsing the
+line.
+
+This is visible on any platform for a codepoint no installed font claims, and
+is total under browser-wasm, where a single embedded face is the only font and
+no family or character query matches: every label in every document collapsed.
+---
+ src/Svg.Skia/SkiaSvgAssetLoader.cs            | 13 ++++++++++++
+ .../SkiaSvgAssetLoaderCachingTests.cs         | 20 +++++++++++++++++++
+ 2 files changed, 33 insertions(+)
+
+diff --git a/src/Svg.Skia/SkiaSvgAssetLoader.cs b/src/Svg.Skia/SkiaSvgAssetLoader.cs
+index 4091dd0..6c38820 100644
+--- a/src/Svg.Skia/SkiaSvgAssetLoader.cs
++++ b/src/Svg.Skia/SkiaSvgAssetLoader.cs
+@@ -154,6 +154,19 @@ runningFont.Typeface is null
+             else
+             {
+                 typeface = MatchCharacterForSpan(GetCodepoint(text, i, ch), out var familyOverride);
++                if (typeface is null && runningFont.Typeface is { } resolvedTypeface)
++                {
++                    // No installed font claims this character. That is not a reason to draw it
++                    // with no font at all: clearing the running typeface leaves the font with
++                    // no metrics, so GetTextAdvance below returns 0 for every span and the
++                    // caller, which positions each span by accumulating those advances, paints
++                    // the whole run at one x. Keeping the face already resolved for the run
++                    // preserves its metrics and degrades to a missing-glyph box instead of an
++                    // unreadable pile of glyphs.
++                    typeface = resolvedTypeface;
++                    familyOverride = null;
++                }
++
+                 matchedShimTypeface = ToShimTypeface(typeface, requestedWeight, familyOverride);
+             }
+ 
+diff --git a/tests/Svg.Skia.UnitTests/SkiaSvgAssetLoaderCachingTests.cs b/tests/Svg.Skia.UnitTests/SkiaSvgAssetLoaderCachingTests.cs
+index 80e4b0c..02d37e2 100644
+--- a/tests/Svg.Skia.UnitTests/SkiaSvgAssetLoaderCachingTests.cs
++++ b/tests/Svg.Skia.UnitTests/SkiaSvgAssetLoaderCachingTests.cs
+@@ -588,6 +588,26 @@ public void PushDocumentFonts_RestoresParentScopeAfterNestedDocument()
+         AssertDocumentTypefaceNotFamily(assetLoader, childFamily, "S", childExpectedFamily);
+     }
+ 
++    [Fact]
++    public void FindTypefaces_KeepsAdvancesWhenNoFontClaimsTheCharacter()
++    {
++        // A private-use codepoint that no installed font is expected to claim, so character
++        // fallback finds nothing. The span must still carry an advance: the callers position
++        // consecutive spans by accumulating these values, so a zero advance draws every span
++        // of the run at the same x. On a platform whose font manager matches nothing at all -
++        // browser-wasm has a single embedded face and answers no family or character query -
++        // every span of every label took that path and each label rendered as one dense mark.
++        var assetLoader = new SkiaSvgAssetLoader(new SkiaModel(new SKSvgSettings()));
++        var paint = CreateTextPaint(24f);
++
++        var spans = assetLoader.FindTypefaces("A\uE000B", paint);
++
++        Assert.NotEmpty(spans);
++        Assert.All(spans, span => Assert.True(
++            span.Advance > 0f,
++            $"span \"{span.Text}\" reported an advance of {span.Advance}"));
++    }
++
+     private static SKPaint CreateTextPaint(float textSize)
+     {
+         return new SKPaint
+-- 
+2.55.0.windows.3
+
