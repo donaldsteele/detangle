@@ -66,10 +66,44 @@ internal static partial class SvgStyleFlattener
     /// <summary>
     /// Removes every font-family declaration, leaving the renderer to pick a face.
     /// <para>
-    /// For platforms that draw text correctly until a family arrives through CSS, and then
-    /// stack every glyph of a word at one position. Text with no family set draws properly
-    /// there, so dropping the declaration is the whole remedy — the labels stay real text,
-    /// selectable and searchable, rather than being outlined into paths.
+    /// The last resort, not the remedy. For platforms that draw text correctly until a
+    /// family arrives and then stack every glyph of a word at one position: text with no
+    /// family set draws properly there, so dropping the declaration keeps labels as real
+    /// text, selectable and searchable, rather than outlining them into paths. It costs
+    /// the diagram its typeface, which is why it now runs only where
+    /// <see cref="DiagramTypefaces"/> — the actual fix — failed to help.
+    /// </para>
+    /// <para>
+    /// WebAssembly was the platform this was written for, and it no longer needs it: the
+    /// collapse there was Svg.Skia's font lookup returning nothing, not the family reaching
+    /// the text. Giving the renderer a lookup that always resolves takes the same sixteen
+    /// probe documents from 4 of 16 drawing correctly to 16 of 16. Nothing measures as
+    /// needing this any more; it is kept because a lookup that cannot answer is a shape
+    /// another platform could arrive at, and readable labels beat correct ones nobody can
+    /// read.
+    /// </para>
+    /// <para>
+    /// Do not "improve" this by rewriting the declaration into a <c>font-family</c>
+    /// presentation attribute instead of deleting it. That looks like a strictly better
+    /// workaround — it would keep the author's typeface — and it is measurably a no-op
+    /// twice over. Svg's parser already performs exactly that rewrite while it reads the
+    /// document: <c>SvgElement.FlushStyles</c> pushes every cascaded declaration through
+    /// the ordinary property setter, which writes <c>Attributes["font-family"]</c>, so both
+    /// spellings reach the renderer as the same dictionary entry and produce a
+    /// byte-identical draw command. And the browser matrix confirms the consequence
+    /// directly: a presentation attribute, a style attribute and a style block all collapse
+    /// to the same pixel spans. The trigger is any resolved family, not the cascade.
+    /// </para>
+    /// <para>
+    /// So the pattern below strips both spellings, the declaration and the presentation
+    /// attribute. Today only the first one appears — measured on Mermaider's output for
+    /// <c>graph LR</c>: two declarations, zero attributes — which makes the attribute
+    /// branch a no-op on current input. It is there because the alternative is a remedy
+    /// whose correctness depends on a diagram generator, several dependencies away,
+    /// continuing to prefer one of two equivalent spellings. This runs only where
+    /// <see cref="SvgTextCapability"/> has already found the platform broken, and there
+    /// every delivery is equally fatal, so there is nothing left to preserve by being
+    /// selective.
     /// </para>
     /// </summary>
     public static string RemoveFontFamilies(string svg)
@@ -369,6 +403,6 @@ internal static partial class SvgStyleFlattener
     [GeneratedRegex(@"(--[a-zA-Z0-9_-]+)\s*:\s*([^;{}]+)\s*;")]
     private static partial Regex Declaration();
 
-    [GeneratedRegex(@"font-family\s*:\s*[^;}]+")]
+    [GeneratedRegex(@"font-family\s*(?::\s*[^;}]+|=\s*(?:""[^""]*""|'[^']*'))")]
     private static partial Regex FontFamilyDeclaration();
 }

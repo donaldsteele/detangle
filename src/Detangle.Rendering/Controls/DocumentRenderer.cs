@@ -335,13 +335,26 @@ public sealed class DocumentRenderer
         text.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
 
     /// <summary>
-    /// Parses a diagram's SVG, dropping its font-family declarations first where naming a
-    /// family through CSS breaks text drawing. The WebAssembly build stacks every glyph of
-    /// a word at one position once a family reaches it that way, and draws the same text
-    /// correctly with no family set (see <see cref="SvgTextCapability"/>).
+    /// Parses a diagram's SVG through a font lookup that always resolves to a face.
+    /// <para>
+    /// Svg.Skia's own lookup can return nothing — it refuses a face whose family name is
+    /// not the one that was asked for — and a label drawn with no typeface has every glyph
+    /// painted at the same point. On WebAssembly, where one embedded font answers to every
+    /// family name and to none of them, that is what happened to every diagram label.
+    /// <see cref="DiagramTypefaces"/> answers first, so the lookup always succeeds.
+    /// </para>
+    /// <para>
+    /// The stripping below is what this repository shipped before the cause was found, and
+    /// it stays as a last resort rather than as the remedy: it costs the diagram its
+    /// typeface, so it should only ever run on a platform where the real fix did not take.
+    /// <see cref="SvgTextCapability"/> measures that, with this same configuration in
+    /// place, and now reads healthy where it used to read broken.
+    /// </para>
     /// </summary>
     private static SvgSource LoadDiagram(string svg)
     {
+        DiagramTypefaces.InstallShared();
+
         if (!SvgTextCapability.CanDrawText)
         {
             svg = SvgStyleFlattener.RemoveFontFamilies(svg);

@@ -49,3 +49,16 @@ testing/
 
 # Claude Code worktrees and local agent state.
 .claude/
+
+# Decompiled third-party assemblies. Reading Svg.Skia's own source is how the mechanism
+# behind issue #1 was found, and the decompilation is worth keeping locally while that is
+# still open — but it is 6.1 MB of somebody else's code under somebody else's licence, and
+# committing it would be both a licensing problem and a diff nobody can review. Regenerate
+# it with ilspycmd against the resolved package rather than checking it in.
+tools/decomp/
+
+# Scratch probes written while issue #1 was being bisected. They hard-code local package
+# paths and exist to be rewritten, not maintained; the findings they produced live in
+# tools/repro/ and in SvgTextSelfTest, which are committed. Kept out of the tree so
+# "git add -A" cannot drag four throwaway Program files into a review.
+tools/shimprobe/

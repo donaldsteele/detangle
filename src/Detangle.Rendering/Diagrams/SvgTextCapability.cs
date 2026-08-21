@@ -1,20 +1,24 @@
-using SkiaSharp;
-using Svg.Skia;
-
 namespace Detangle.Rendering.Diagrams;
 
 /// <summary>
-/// Asks the platform, once, whether it can draw SVG text correctly.
+/// Asks the configuration the reader ships, once, whether it can draw SVG text correctly.
 /// <para>
-/// Every cheaper question gave the wrong answer. WebAssembly reports a font family,
-/// resolves "sans-serif" to a real face with 897 glyphs, and measures a nine-letter word
-/// at 72 pixels — and then draws all the letters of a label on top of each other. Bisecting
-/// it there showed the trigger precisely: text draws correctly at any size, weight and
-/// anchor, and collapses only once a font-family reaches it through a CSS rule.
+/// This began as a permanent verdict about WebAssembly and is now a safety net, because
+/// the defect it was written for has a fix. Naming a font family used to collapse every
+/// glyph of a label onto one point there; <see cref="DiagramTypefaces"/> repairs it, and
+/// this probe measures with that repair installed, so on the platform it was written for
+/// it now reads healthy. What it guards is the case where some future platform breaks the
+/// same way and the fix does not take: <see cref="SvgStyleFlattener.RemoveFontFamilies"/>
+/// still draws readable labels there, at the cost of the typeface.
 /// </para>
 /// <para>
-/// So the probe renders that exact shape — two letters styled through a style block — and
-/// checks the second one landed to the right of the first.
+/// The probe renders two letters styled through a style block — the delivery Mermaider
+/// emits — and checks the second landed to the right of the first. Every cheaper question
+/// answered wrongly: WebAssembly reported a font family, resolved "sans-serif" to a real
+/// face with 897 glyphs, and measured a nine-letter word at 72 pixels while drawing all
+/// nine letters on top of each other. Where the ink fell is the only question that
+/// survived. <see cref="SvgTextSelfTest"/> is the same measurement across every delivery,
+/// size and weight, and <see cref="SvgTextLayerProbe"/> is what located the cause.
 /// </para>
 /// </summary>
 public static class SvgTextCapability
@@ -65,26 +69,19 @@ public static class SvgTextCapability
                 + "<style>text { font-family: sans-serif; }</style>"
                 + "<text x=\"2\" y=\"24\" font-size=\"24\" fill=\"#ffffff\">MM</text></svg>";
 
-            using var svg = new SKSvg();
+            // Measured with the font lookup the reader actually draws diagrams through.
+            // Asking about the bare platform would answer a question nothing depends on:
+            // what matters is whether the configuration that ships can draw a label.
+            SvgInkSpan.Reading reading = SvgInkSpan.Measure(Probe, Width, Height, DiagramTypefaces.Install);
 
-            if (svg.FromSvg(Probe) is null || svg.Picture is null)
+            if (!reading.Parsed)
             {
                 Diagnosis = "the probe did not parse";
 
                 return false;
             }
 
-            using var bitmap = new SKBitmap(Width, Height);
-
-            using (var canvas = new SKCanvas(bitmap))
-            {
-                canvas.Clear(SKColors.Black);
-                canvas.DrawPicture(svg.Picture);
-            }
-
-            (int first, int last) = InkedColumns(bitmap);
-
-            if (first < 0)
+            if (reading.First < 0)
             {
                 Diagnosis = "no text was drawn at all";
 
@@ -93,7 +90,7 @@ public static class SvgTextCapability
 
             // Two 24-point letters span well over twenty pixels; one letter drawn twice
             // spans about half that.
-            int span = last - first;
+            int span = reading.Span;
             bool ok = span > 20;
 
             Diagnosis = ok
@@ -108,29 +105,5 @@ public static class SvgTextCapability
 
             return false;
         }
-    }
-
-    private static (int First, int Last) InkedColumns(SKBitmap bitmap)
-    {
-        int first = -1;
-        int last = -1;
-
-        for (int x = 0; x < bitmap.Width; x++)
-        {
-            for (int y = 0; y < bitmap.Height; y++)
-            {
-                if (bitmap.GetPixel(x, y).Red <= 100)
-                {
-                    continue;
-                }
-
-                first = first < 0 ? x : first;
-                last = x;
-
-                break;
-            }
-        }
-
-        return (first, last);
     }
 }

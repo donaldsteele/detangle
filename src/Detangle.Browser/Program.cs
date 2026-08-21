@@ -21,6 +21,15 @@ internal static class Program
     /// <summary>Where the demo wiki is unpacked before the scanner is pointed at it.</summary>
     private const string VaultPath = "/samples";
 
+    /// <summary>The argument "?selftest=1" becomes, asking for the full variant matrix.</summary>
+    private const string SelfTestFlag = "--selftest";
+
+    /// <summary>
+    /// Printed after the matrix so a scraper knows the table is complete rather than
+    /// guessing from a timeout. tools/wasm-console.mjs waits for this line.
+    /// </summary>
+    private const string SelfTestDone = "detangle: selftest complete";
+
     private static async Task Main(string[] args)
     {
         UnpackSampleVault();
@@ -28,8 +37,11 @@ internal static class Program
         DetangleApp.StartupVault = VaultPath;
         DetangleApp.ThemeOverride = true;
 
-        // The host page turns "?page=wiki/schema" into an argument.
-        if (args is [{ Length: > 0 } page, ..])
+        // The host page turns "?page=wiki/schema" into an argument, and "?selftest=1" into
+        // the flag below.
+        string[] pages = args.Where(argument => argument != SelfTestFlag).ToArray();
+
+        if (pages is [{ Length: > 0 } page, ..])
         {
             DetangleApp.StartupPage = page;
         }
@@ -39,6 +51,26 @@ internal static class Program
         bool drawsText = Detangle.Rendering.Diagrams.SvgTextCapability.CanDrawText;
 
         Console.WriteLine($"detangle: svg text draws={drawsText} - {Detangle.Rendering.Diagrams.SvgTextCapability.Diagnosis}");
+
+        if (args.Contains(SelfTestFlag))
+        {
+            // The full matrix is verbose, so it stays behind the flag: the one-line
+            // diagnosis above is what every visitor should see, and this is what someone
+            // confirming the defect — or confirming a fix — needs instead.
+            Console.WriteLine(Detangle.Rendering.Diagrams.SvgTextSelfTest.Table());
+
+            // The matrix says every delivery of a family collapses. This says which layer
+            // did it, and whether handing the renderer a real face repairs it.
+            Console.WriteLine(Detangle.Rendering.Diagrams.SvgTextLayerProbe.Table());
+
+            // And the same sixteen cells again with the permissive font lookup in place,
+            // which is the only comparison that shows whether it repairs the defect or
+            // just moves it.
+            Console.WriteLine("with DiagramTypefaces installed:");
+            Console.WriteLine(Detangle.Rendering.Diagrams.SvgTextSelfTest.Table(
+                Detangle.Rendering.Diagrams.DiagramTypefaces.Install));
+            Console.WriteLine(SelfTestDone);
+        }
 
         await BuildAvaloniaApp().StartBrowserAppAsync("out").ConfigureAwait(true);
     }
