@@ -23,12 +23,16 @@ internal static class Program
 
     private static async Task Main(string[] args)
     {
-        _ = args;
-
         UnpackSampleVault();
 
         DetangleApp.StartupVault = VaultPath;
         DetangleApp.ThemeOverride = true;
+
+        // The host page turns "?page=wiki/schema" into an argument.
+        if (args is [{ Length: > 0 } page, ..])
+        {
+            DetangleApp.StartupPage = page;
+        }
 
         await BuildAvaloniaApp().StartBrowserAppAsync("out").ConfigureAwait(true);
     }

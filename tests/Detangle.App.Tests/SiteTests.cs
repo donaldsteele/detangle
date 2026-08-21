@@ -33,6 +33,53 @@ public partial class SiteTests
     }
 
     [Fact]
+    public void EveryPageSharesTheAllowlistedInlineScript()
+    {
+        // The policy allows exactly one inline script by hash. A second page with a
+        // different pre-paint would be blocked and would flash the wrong palette.
+        string headers = Read("_headers");
+
+        foreach (string page in Directory.GetFiles(Path.Combine(Root, "site"), "*.html"))
+        {
+            Match script = InlineScript().Match(File.ReadAllText(page));
+
+            if (!script.Success)
+            {
+                continue;
+            }
+
+            string hash = "sha256-" + Convert.ToBase64String(
+                SHA256.HashData(Encoding.UTF8.GetBytes(script.Groups[1].Value)));
+
+            Assert.True(
+                headers.Contains(hash, StringComparison.Ordinal),
+                $"{Path.GetFileName(page)} has an inline script the policy does not allow");
+        }
+    }
+
+    [Fact]
+    public void ThePlanSDeliverablesAreAllPresent()
+    {
+        // plan.md section 8 lists the phase as "landing + docs + changelog", and the
+        // changelog was the one that got forgotten.
+        Assert.True(File.Exists(Path.Combine(Root, "site", "index.html")));
+        Assert.True(File.Exists(Path.Combine(Root, "site", "changelog.html")));
+        Assert.True(Directory.Exists(Path.Combine(Root, "docs")));
+        Assert.True(File.Exists(Path.Combine(Root, "src", "Detangle.Browser", "Program.cs")));
+    }
+
+    [Fact]
+    public void TheSiteLinksIntoTheDemoAtTheDiagramPages()
+    {
+        // The phase's exit criterion is a Mermaid page and a DBML page rendering in the
+        // browser, so the site points at both directly.
+        string html = Read("index.html");
+
+        Assert.Contains("demo/?page=concepts/self-attention", html, StringComparison.Ordinal);
+        Assert.Contains("demo/?page=wiki/schema", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheSiteLoadsNothingFromAnybodyElse()
     {
         string html = Read("index.html");

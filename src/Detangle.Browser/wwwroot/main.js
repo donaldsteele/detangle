@@ -8,4 +8,9 @@ const config = app.getConfig();
 
 document.getElementById('loading')?.remove();
 
-await app.runMain(config.mainAssemblyName, []);
+// "?page=wiki/schema" opens the demo on that page, so the website can link straight to
+// the diagram it is talking about. The value is handed over as a command-line argument
+// rather than through interop: the runtime already has a way to pass one.
+const page = new URLSearchParams(location.search).get('page');
+
+await app.runMain(config.mainAssemblyName, page ? [page] : []);

@@ -75,7 +75,9 @@ public sealed partial class MermaiderDiagramRenderer : IDiagramRenderer
 
         try
         {
-            string svg = MermaidRenderer.RenderSvg(NormalizeHeader(mermaid), OptionsFor(theme));
+            string svg = SvgStyleFlattener.Flatten(
+                MermaidRenderer.RenderSvg(NormalizeHeader(mermaid), OptionsFor(theme)),
+                VariablesFor(theme));
             (double width, double height) = MeasureSvg(svg);
 
             return new DiagramResult(svg, width, height, diagnostics);
@@ -150,6 +152,44 @@ public sealed partial class MermaiderDiagramRenderer : IDiagramRenderer
             Surface = "#f3f3f1",
             Border = "#dcdcd8",
             Transparent = true,
+        };
+
+    /// <summary>
+    /// The root variables a browser would have supplied. Mermaider writes its colours and
+    /// its font sizes as custom properties expecting a host page to define them; there is
+    /// no host page here, and an unresolved font-size draws every label at no size at all.
+    /// <para>
+    /// The sizes are unitless on purpose. They land in SVG presentation attributes, which
+    /// take user units rather than CSS lengths — "13px" there is not a number, and a
+    /// renderer that reads it as zero puts the labels back where they started.
+    /// </para>
+    /// </summary>
+    private static Dictionary<string, string> VariablesFor(DiagramTheme theme) => theme == DiagramTheme.Dark
+        ? new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["--bg"] = "#0b0d12",
+            ["--fg"] = "#e7eaf0",
+            ["--line"] = "#6b7681",
+            ["--accent"] = "#6cb6ff",
+            ["--muted"] = "#8b94a5",
+            ["--surface"] = "#161b23",
+            ["--border"] = "#333c4a",
+            ["--fs-m"] = "13",
+            ["--fs-s"] = "11",
+            ["--fs-l"] = "16",
+        }
+        : new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["--bg"] = "#ffffff",
+            ["--fg"] = "#12151b",
+            ["--line"] = "#7d868f",
+            ["--accent"] = "#1f6feb",
+            ["--muted"] = "#586173",
+            ["--surface"] = "#f1f3f6",
+            ["--border"] = "#c3cad5",
+            ["--fs-m"] = "13",
+            ["--fs-s"] = "11",
+            ["--fs-l"] = "16",
         };
 
     /// <summary>

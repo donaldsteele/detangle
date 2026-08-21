@@ -25,6 +25,12 @@
     <AvaloniaResource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
 
+  <!-- The CSS flattener is an implementation detail of diagram rendering, but its edge
+       cases are exactly what wants testing directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Detangle.Rendering.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Detangle.Core\Detangle.Core.csproj" />
   </ItemGroup>

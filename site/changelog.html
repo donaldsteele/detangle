@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Changelog — Detangle</title>
+<meta name="description" content="What changed in each release of Detangle." />
+<link rel="canonical" href="https://detangle.dev/changelog.html" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+<script>
+  // Pre-paint so the page never flashes the wrong palette. No stored value means
+  // follow the operating system, which the stylesheet handles on its own.
+  try {
+    var stored = localStorage.getItem("detangle-theme");
+    if (stored) { document.documentElement.setAttribute("data-theme", stored); }
+  } catch (e) { /* private mode; the OS preference still applies */ }
+</script>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="wordmark" href="/">de<span>tangle</span></a>
+    <nav>
+      <a class="persist" href="/#demo">Demo</a>
+      <a class="persist" href="docs/">Docs</a>
+      <a class="persist" href="https://github.com/donaldsteele/detangle">GitHub</a>
+      <button class="toggle" id="theme-toggle" type="button" aria-label="Switch theme">Theme</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Changelog</span>
+      <h2>What changed, and when.</h2>
+      <p>
+        Written from the commit history at deploy time. Every release also carries its own
+        notes and checksums on
+        <a href="https://github.com/donaldsteele/detangle/releases">the releases page</a>.
+      </p>
+    </div>
+
+    <!-- Replaced by the site workflow once a version tag exists. -->
+    <div id="releases">
+      <div class="card">
+        <h3>Unreleased</h3>
+        <p>
+          Nothing is tagged yet. The application is complete and testable — build it with
+          <code>dotnet publish src/Detangle.Desktop</code>, or
+          <a href="/#demo">try the demo</a>, which runs the same reader in a browser tab.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="wordmark" href="/">de<span>tangle</span></a>
+    <span>© 2026 · MIT</span>
+    <nav>
+      <a href="docs/">Docs</a>
+      <a href="https://github.com/donaldsteele/detangle">GitHub</a>
+      <a href="https://github.com/donaldsteele/detangle/releases">Releases</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

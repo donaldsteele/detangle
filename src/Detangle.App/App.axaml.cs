@@ -40,6 +40,12 @@ public partial class DetangleApp : Application
     /// </summary>
     public static bool? ThemeOverride { get; set; }
 
+    /// <summary>
+    /// A vault-relative page to open instead of the vault's front door, so a link can
+    /// point at the page it is describing rather than at the reader in general.
+    /// </summary>
+    public static string? StartupPage { get; set; }
+
     public override void OnFrameworkInitializationCompleted()
     {
         switch (ApplicationLifetime)
@@ -87,6 +93,11 @@ public partial class DetangleApp : Application
         if (StartupVault is { Length: > 0 } vault)
         {
             viewModel.OpenVault(vault);
+
+            if (StartupPage is { Length: > 0 } page)
+            {
+                viewModel.OpenPath(page);
+            }
         }
 
         return viewModel;

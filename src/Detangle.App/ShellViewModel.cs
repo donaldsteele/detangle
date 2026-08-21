@@ -318,6 +318,33 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Opens a page by vault-relative path, resolving it the same way a link would so
+    /// that "wiki/schema" finds wiki/schema.md.
+    /// </summary>
+    /// <param name="relativePath">The path to open.</param>
+    /// <returns>True when a page was found.</returns>
+    public bool OpenPath(string relativePath)
+    {
+        if (_vault is null || string.IsNullOrWhiteSpace(relativePath))
+        {
+            return false;
+        }
+
+        VaultDocument? document = _vault.Index.ByRelativePath(relativePath).FirstOrDefault()
+            ?? _vault.Documents.FirstOrDefault(d => d.IsMarkdown
+                && LinkNormalizer.Normalize(d.RelativePath) == LinkNormalizer.Normalize(relativePath));
+
+        if (document is null)
+        {
+            return false;
+        }
+
+        Open(document);
+
+        return true;
+    }
+
     /// <summary>Closes a tab, activating its neighbour.</summary>
     public void Close(DocumentTab tab)
     {
