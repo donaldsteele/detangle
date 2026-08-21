@@ -355,6 +355,39 @@ h1 em {
   margin-left: 6px;
 }
 
+/* Screenshots. Every one is the real application, captured from the published demo by
+   driving it through the DevTools protocol - so the pictures cannot drift away from what
+   the software does without the capture noticing. They sit inside the same window frame
+   the code samples use, because they are the same claim in a different medium. */
+.window img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shot {
+  margin: 0;
+}
+
+.shot figcaption {
+  margin-top: 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.shots {
+  display: grid;
+  gap: 28px;
+  margin-top: 32px;
+}
+
+@media (min-width: 900px) {
+  .shots.pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .chrome .copy {
   margin-left: auto;
   border: 1px solid var(--border-strong);
