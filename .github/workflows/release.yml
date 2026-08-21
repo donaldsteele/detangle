@@ -1,0 +1,327 @@
+name: Release
+
+# One tag produces every artifact. macOS builds run on macOS because notarization needs
+# Apple's toolchain, and the Intel build runs on an Intel runner so the .app it signs is
+# the .app it tested.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, without the leading v (for a dry run)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_NOLOGO: 'true'
+  PROJECT: src/Detangle.Desktop/Detangle.Desktop.csproj
+
+jobs:
+  version:
+    name: version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve the version
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+
+          # Velopack requires SemVer; a tag that is not one would fail late, in the pack
+          # step of six parallel jobs, rather than here.
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$version' is not a semantic version"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.rid }}
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            runner: windows-latest
+            channel: win-x64
+          - rid: win-arm64
+            runner: windows-latest
+            channel: win-arm64
+          - rid: linux-x64
+            runner: ubuntu-latest
+            channel: linux-x64
+          - rid: linux-arm64
+            runner: ubuntu-latest
+            channel: linux-arm64
+          - rid: osx-x64
+            runner: macos-13
+            channel: osx-x64
+          - rid: osx-arm64
+            runner: macos-latest
+            channel: osx-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install the Velopack CLI
+        run: dotnet tool install --global vpk --version 1.2.0
+
+      - name: Publish
+        shell: bash
+        run: >
+          dotnet publish ${{ env.PROJECT }}
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:PublishTrimmed=true
+          -p:Version=${{ needs.version.outputs.version }}
+          --output publish/${{ matrix.rid }}
+
+      # --- Windows -------------------------------------------------------------------
+
+      - name: Sign the Windows build
+        if: startsWith(matrix.rid, 'win') && secrets.AZURE_VAULT_URL != ''
+        shell: pwsh
+        run: |
+          # Azure Trusted Signing. SmartScreen reputation accrues per certificate, so an
+          # unsigned release costs every user a warning dialog for months.
+          dotnet tool install --global AzureSignTool --version 6.0.0
+          AzureSignTool sign `
+            --azure-key-vault-url "${{ secrets.AZURE_VAULT_URL }}" `
+            --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" `
+            --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" `
+            --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" `
+            --azure-key-vault-certificate "${{ secrets.AZURE_CERTIFICATE }}" `
+            --timestamp-rfc3161 "http://timestamp.acs.microsoft.com" `
+            --timestamp-digest sha256 `
+            "publish/${{ matrix.rid }}/detangle.exe"
+
+      - name: Pack the Windows installer
+        if: startsWith(matrix.rid, 'win')
+        shell: bash
+        run: >
+          vpk pack
+          --packId Detangle
+          --packVersion ${{ needs.version.outputs.version }}
+          --packDir publish/${{ matrix.rid }}
+          --mainExe detangle.exe
+          --packTitle Detangle
+          --packAuthors "Don Steele"
+          --channel ${{ matrix.channel }}
+          --outputDir artifacts
+
+      # --- Linux ---------------------------------------------------------------------
+
+      - name: Pack the AppImage
+        if: startsWith(matrix.rid, 'linux')
+        shell: bash
+        run: >
+          vpk pack
+          --packId Detangle
+          --packVersion ${{ needs.version.outputs.version }}
+          --packDir publish/${{ matrix.rid }}
+          --mainExe detangle
+          --packTitle Detangle
+          --packAuthors "Don Steele"
+          --channel ${{ matrix.channel }}
+          --outputDir artifacts
+
+      - name: Build the .deb
+        if: startsWith(matrix.rid, 'linux')
+        shell: bash
+        run: |
+          arch=$([ "${{ matrix.rid }}" = "linux-x64" ] && echo amd64 || echo arm64)
+          root="deb/detangle_${{ needs.version.outputs.version }}_${arch}"
+
+          mkdir -p "$root/DEBIAN" "$root/usr/lib/detangle" "$root/usr/bin" "$root/usr/share/applications"
+          cp -r publish/${{ matrix.rid }}/. "$root/usr/lib/detangle/"
+          ln -s /usr/lib/detangle/detangle "$root/usr/bin/detangle"
+
+          # The WebView diagram backend is opt-in and probes for these at run time, so
+          # they are Recommends rather than Depends: the app works without them, and a
+          # hard dependency would make Detangle uninstallable on a minimal system.
+          cat > "$root/DEBIAN/control" <<CONTROL
+          Package: detangle
+          Version: ${{ needs.version.outputs.version }}
+          Section: utils
+          Priority: optional
+          Architecture: ${arch}
+          Maintainer: Don Steele <don.steele@gmail.com>
+          Recommends: libwebkit2gtk-4.1-0, libsoup-3.0-0
+          Description: A markdown wiki viewer that resolves the links other viewers drop
+           Detangle reads a folder of markdown as a wiki and follows links that do not
+           match a filename exactly, which is how LLM-written wikis are usually written.
+          CONTROL
+
+          cat > "$root/usr/share/applications/detangle.desktop" <<DESKTOP
+          [Desktop Entry]
+          Type=Application
+          Name=Detangle
+          Comment=Read a folder of markdown as a wiki
+          Exec=/usr/bin/detangle %f
+          Terminal=false
+          Categories=Office;Viewer;
+          DESKTOP
+
+          dpkg-deb --build --root-owner-group "$root"
+          mkdir -p artifacts
+          mv "$root.deb" artifacts/
+
+      # --- macOS ---------------------------------------------------------------------
+
+      - name: Import the signing certificate
+        if: startsWith(matrix.rid, 'osx') && secrets.APPLE_CERTIFICATE_P12 != ''
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Pack, sign and notarize the .app
+        if: startsWith(matrix.rid, 'osx')
+        shell: bash
+        env:
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          # An unsigned .app on modern macOS is effectively unlaunchable, so signing is
+          # not optional for a real release — but a fork without the secrets should still
+          # get a build rather than a failed workflow.
+          if [ -n "$IDENTITY" ]; then
+            signing="--signAppIdentity=$IDENTITY --notaryProfile=detangle"
+            xcrun notarytool store-credentials detangle \
+              --apple-id "${{ secrets.APPLE_ID }}" \
+              --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+              --password "${{ secrets.APPLE_APP_PASSWORD }}"
+          else
+            signing=""
+            echo "::warning::No Apple signing identity; this build is unsigned and will not launch on a stock Mac."
+          fi
+
+          vpk pack \
+            --packId Detangle \
+            --packVersion ${{ needs.version.outputs.version }} \
+            --packDir publish/${{ matrix.rid }} \
+            --mainExe detangle \
+            --packTitle Detangle \
+            --packAuthors "Don Steele" \
+            --channel ${{ matrix.channel }} \
+            --outputDir artifacts \
+            $signing
+
+      # --- Portable archive ----------------------------------------------------------
+
+      - name: Archive the portable build
+        shell: bash
+        run: |
+          mkdir -p artifacts
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a -tzip "artifacts/detangle-${{ needs.version.outputs.version }}-${{ matrix.rid }}.zip" \
+              "./publish/${{ matrix.rid }}/*"
+          else
+            tar -czf "artifacts/detangle-${{ needs.version.outputs.version }}-${{ matrix.rid }}.tar.gz" \
+              -C "publish/${{ matrix.rid }}" .
+          fi
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}
+          path: artifacts/
+          if-no-files-found: error
+
+  release:
+    name: release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Check that every RID produced something
+        shell: bash
+        run: |
+          missing=0
+
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            if ! ls artifacts | grep -q -- "$rid"; then
+              echo "::error::no artifact for $rid"
+              missing=1
+            fi
+          done
+
+          # The phase 8 exit criterion is that one tag produces all six. A release that
+          # quietly ships four of them is the failure this guards against.
+          exit $missing
+
+      - name: Generate the changelog
+        id: changelog
+        shell: bash
+        run: |
+          previous=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          range=${previous:+$previous..}${GITHUB_REF_NAME}
+
+          {
+            echo 'notes<<CHANGELOG'
+
+            for section in "feat:New" "fix:Fixed" "perf:Performance" "docs:Documentation"; do
+              type=${section%%:*}
+              heading=${section#*:}
+              body=$(git log --no-merges --pretty=format:'- %s' "$range" | grep -E "^- $type(\(.+\))?: " || true)
+
+              if [ -n "$body" ]; then
+                printf '### %s\n%s\n\n' "$heading" "$(printf '%s' "$body" | sed -E "s/^- $type(\(.+\))?: /- /")"
+              fi
+            done
+
+            printf '**Full changelog**: %s/compare/%s...%s\n' \
+              "${{ github.server_url }}/${{ github.repository }}" "${previous:-$GITHUB_REF_NAME}" "$GITHUB_REF_NAME"
+            echo CHANGELOG
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish checksums
+        shell: bash
+        run: |
+          cd artifacts
+          # RELEASES and the .nupkg files are the update feed; they are checksummed too,
+          # because an update that cannot be verified is worse than no update.
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Detangle ${{ needs.version.outputs.version }}
+          body: ${{ steps.changelog.outputs.notes }}
+          files: artifacts/*
+          draft: false
+          prerelease: ${{ contains(needs.version.outputs.version, '-') }}
+          fail_on_unmatched_files: true

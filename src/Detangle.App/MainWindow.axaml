@@ -71,10 +71,13 @@
 
       <!-- Status bar: the section 5.5 counters. -->
       <Border DockPanel.Dock="Bottom" Padding="10,6" BorderThickness="0,1,0,0" BorderBrush="#33808080">
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
           <TextBlock Grid.Column="0" Text="{Binding Status}" FontSize="12" Opacity="0.75"
                      TextTrimming="CharacterEllipsis" />
-          <TextBlock Grid.Column="1" Text="{Binding LinkSummary}" FontSize="12" Opacity="0.75" />
+          <Button Grid.Column="1" Content="{Binding UpdateSummary}" IsVisible="{Binding HasUpdate}"
+                  Command="{Binding InstallUpdateCommand}" FontSize="11" Padding="8,2" Margin="0,0,10,0"
+                  ToolTip.Tip="Downloads the update and restarts into it" />
+          <TextBlock Grid.Column="2" Text="{Binding LinkSummary}" FontSize="12" Opacity="0.75" />
         </Grid>
       </Border>
 

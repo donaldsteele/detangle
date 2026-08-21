@@ -20,10 +20,43 @@
     <TrimMode>partial</TrimMode>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>embedded</DebugType>
+
+    <!--
+      The repository treats warnings as errors, and the trimmer reports one for every
+      dependency that touches reflection. Two do: YamlDotNet, which deserializes
+      frontmatter by reflecting over types, and Avalonia.DesignerSupport, which exists
+      only for the XAML previewer. Both are handled below, so the remaining reports are
+      informational and must not fail a release build. Individual warnings are still
+      printed rather than rolled into one per assembly, so a new one is visible.
+    -->
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <!--
+      YamlDotNet is kept whole. Trimming it away would not fail the build; it would make
+      frontmatter parsing return empty objects at run time in the shipped app only, which
+      is precisely the silent-failure mode plan.md section 11 rejects AOT for.
+    -->
+    <TrimmerRootAssembly Include="YamlDotNet" />
+  </ItemGroup>
+
+  <!--
+    SkiaSharp and HarfBuzz ship native .pdb files, which are 111 MB next to a 63 MB
+    application. They are debugging symbols for somebody else's native code and have no
+    business in a release download; our own symbols are embedded in the executable.
+  -->
+  <Target Name="StripSymbolsFromPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <PublishedSymbols Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(PublishedSymbols)" />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Velopack" />
   </ItemGroup>
 
   <ItemGroup>

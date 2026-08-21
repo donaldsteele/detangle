@@ -759,6 +759,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
         string query = PaletteQuery.Trim();
 
+        foreach (PaletteEntry action in Actions().Where(
+            a => query.Length == 0 || a.Title.Contains(query, StringComparison.OrdinalIgnoreCase)))
+        {
+            PaletteResults.Add(action);
+        }
+
         IEnumerable<VaultDocument> documents = _vault.Documents.Where(d => d.IsMarkdown);
 
         if (query.Length > 0)
@@ -803,6 +809,40 @@ public sealed partial class ShellViewModel : ObservableObject
                     IsPaletteOpen = false;
                     AnchorRequested?.Invoke(this, captured.Slug);
                 }));
+        }
+    }
+
+    /// <summary>
+    /// The things the palette can do rather than open. Kept short on purpose: a palette
+    /// that lists every command in the app is a menu with worse discoverability.
+    /// </summary>
+    private IEnumerable<PaletteEntry> Actions()
+    {
+        yield return new PaletteEntry("Graph view", "Ctrl+G", () =>
+        {
+            IsPaletteOpen = false;
+            ToggleGraph();
+        });
+
+        yield return new PaletteEntry("Edit this page", "Ctrl+E", () =>
+        {
+            IsPaletteOpen = false;
+            ToggleEdit();
+        });
+
+        yield return new PaletteEntry("Normalize links in the vault", "rewrites every link to its canonical target", () =>
+        {
+            IsPaletteOpen = false;
+            NormalizeVault();
+        });
+
+        if (UpdateService is { IsInstalled: true })
+        {
+            yield return new PaletteEntry("Check for updates", "asks the release feed", () =>
+            {
+                IsPaletteOpen = false;
+                _ = CheckForUpdatesAsync();
+            });
         }
     }
 

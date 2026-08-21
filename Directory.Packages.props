@@ -49,6 +49,15 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
   </ItemGroup>
 
+  <!--
+    Packaging and update (phase 8). Velopack does installers, deltas and the in-app
+    updater for all three desktop platforms with one tool, which is why plan.md section 11
+    picked it over Avalonia Parcel — whose CLI, the part CI needs, is paid.
+  -->
+  <ItemGroup Label="Packaging (phase 8)">
+    <PackageVersion Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Test">
     <PackageVersion Include="xunit.v3" Version="4.0.0" />
     <PackageVersion Include="Avalonia.Headless" Version="12.1.1" />
