@@ -40,3 +40,6 @@ desktop.ini
 
 # Scratch screenshots and manual-testing artefacts.
 testing/
+
+# Claude Code worktrees and local agent state.
+.claude/
