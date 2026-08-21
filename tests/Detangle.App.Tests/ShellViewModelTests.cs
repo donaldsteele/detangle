@@ -44,6 +44,44 @@ public class ShellViewModelTests
         Assert.Contains("not found", shell.Status, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("|not<a>path")]
+    public void AnUnusablePathReportsItselfWithoutThrowing(string path)
+    {
+        // The toolbar hands whatever is in the path box straight to this, and an empty box
+        // is the state the application starts in — so the first thing a new user can do is
+        // press the button with nothing typed. Path.GetFullPath throws ArgumentException
+        // for that, which is not one of the filesystem exceptions the open path guards, and
+        // it took the whole window down.
+        var shell = new ShellViewModel();
+
+        shell.OpenVault(path);
+
+        Assert.False(shell.HasVault);
+        Assert.NotEmpty(shell.Status);
+    }
+
+    [Fact]
+    public void TheSidePanelsCollapseIndependently()
+    {
+        var shell = new ShellViewModel();
+
+        Assert.True(shell.IsLeftPanelVisible);
+        Assert.True(shell.IsRightPanelVisible);
+
+        shell.ToggleLeftPanelCommand.Execute(null);
+
+        Assert.False(shell.IsLeftPanelVisible);
+        Assert.True(shell.IsRightPanelVisible);
+
+        shell.ToggleRightPanelCommand.Execute(null);
+
+        Assert.False(shell.IsLeftPanelVisible);
+        Assert.False(shell.IsRightPanelVisible);
+    }
+
     [Fact]
     public void TheStatusLineCountsBrokenAndAmbiguousLinks()
     {

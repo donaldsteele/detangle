@@ -12,6 +12,14 @@
   -->
 
   <StreamGeometry x:Key="IconBack">M15 5 L8 12 L15 19</StreamGeometry>
+
+  <!--
+    The two side panels. A pane with one edge banded, so which panel the button controls is
+    read from the icon rather than from the tooltip. Mirrored rather than redrawn, so the
+    pair cannot drift apart.
+  -->
+  <StreamGeometry x:Key="IconPanelLeft">M4 5 H20 A1 1 0 0 1 21 6 V18 A1 1 0 0 1 20 19 H4 A1 1 0 0 1 3 18 V6 A1 1 0 0 1 4 5 Z M9 5 V19</StreamGeometry>
+  <StreamGeometry x:Key="IconPanelRight">M4 5 H20 A1 1 0 0 1 21 6 V18 A1 1 0 0 1 20 19 H4 A1 1 0 0 1 3 18 V6 A1 1 0 0 1 4 5 Z M15 5 V19</StreamGeometry>
   <StreamGeometry x:Key="IconForward">M9 5 L16 12 L9 19</StreamGeometry>
 
   <!-- Files: a folder, opened. -->

@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Detangle.Core.Graph;
@@ -37,7 +38,18 @@ public partial class ShellView : UserControl
 
         _renderer = CreateRenderer(isDark: ActualThemeVariant == ThemeVariant.Dark);
 
-        OpenButton.Click += (_, _) => ViewModel?.OpenVault(VaultPathBox.Text ?? string.Empty);
+        OpenButton.Click += async (_, _) => await ChooseVault().ConfigureAwait(true);
+
+        // Typing a path and pressing Enter still opens it. The button is for people who do
+        // not know the path by heart, which is most people opening a folder.
+        VaultPathBox.KeyDown += (_, args) =>
+        {
+            if (args.Key == Key.Enter)
+            {
+                ViewModel?.OpenVault(VaultPathBox.Text ?? string.Empty);
+                args.Handled = true;
+            }
+        };
         NavigationTree.SelectionChanged += OnNavigationSelectionChanged;
         TagTree.SelectionChanged += OnTagSelectionChanged;
         OutlineList.SelectionChanged += OnOutlineSelectionChanged;
@@ -54,10 +66,103 @@ public partial class ShellView : UserControl
         WireEditing();
 
         DataContextChanged += OnDataContextChanged;
-        KeyDown += OnWindowKeyDown;
+    }
+
+    /// <summary>
+    /// Listens for shortcuts at the window rather than at this control.
+    /// <para>
+    /// Key events go to whatever holds focus and bubble up from there, so a handler on this
+    /// control only ever hears them while focus is inside it. Nothing in the reading pane
+    /// takes focus — a rendered document is text blocks — so on a freshly opened window,
+    /// and after clicking on the page itself, every shortcut in the application was silently
+    /// doing nothing. Attaching at the top level catches them wherever focus is, or is not.
+    /// </para>
+    /// <para>
+    /// Bubbling rather than tunnelling on purpose: a focused control gets first refusal, so
+    /// Ctrl+A in the path box still selects text instead of being taken by the shell.
+    /// </para>
+    /// </summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        TopLevel.GetTopLevel(this)?.AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Bubble);
+    }
+
+    /// <inheritdoc />
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        TopLevel.GetTopLevel(this)?.RemoveHandler(KeyDownEvent, OnWindowKeyDown);
+
+        base.OnDetachedFromVisualTree(e);
     }
 
     private ShellViewModel? ViewModel => DataContext as ShellViewModel;
+
+    /// <summary>
+    /// Asks for a folder and opens it.
+    /// <para>
+    /// The button used to hand whatever was in the path box straight to the scanner, which
+    /// meant the first thing a new user could do — press it with the box empty — threw out
+    /// of <c>Path.GetFullPath</c> and took the window with it. It now asks, starting from
+    /// the vault already open so opening a sibling folder is one step.
+    /// </para>
+    /// <para>
+    /// Where there is no picker to ask with, the typed path is still honoured rather than
+    /// leaving the button dead: the browser build has no local folders to offer, and says
+    /// so instead of appearing to do nothing.
+    /// </para>
+    /// </summary>
+    private async Task ChooseVault()
+    {
+        if (ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        if (Storage is not { CanPickFolder: true } storage)
+        {
+            if (VaultPathBox.Text is { Length: > 0 } typed)
+            {
+                viewModel.OpenVault(typed);
+
+                return;
+            }
+
+            viewModel.Status = "This build cannot browse for folders. Type a path and press Enter.";
+
+            return;
+        }
+
+        IStorageFolder? start = null;
+
+        if (viewModel.VaultPath is { Length: > 0 } current)
+        {
+            try
+            {
+                start = await storage.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(current))).ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+            {
+                // A remembered path that no longer resolves is not worth reporting: the
+                // picker simply opens wherever it would have opened anyway.
+                start = null;
+            }
+        }
+
+        IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions
+            {
+                Title = "Open a vault",
+                AllowMultiple = false,
+                SuggestedStartLocation = start,
+            }).ConfigureAwait(true);
+
+        if (folders is [{ } folder] && folder.TryGetLocalPath() is { Length: > 0 } path)
+        {
+            viewModel.OpenVault(path);
+        }
+    }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
@@ -403,6 +508,13 @@ public partial class ShellView : UserControl
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
+        // A control that already acted on the key keeps it: this runs after the focused
+        // element has had its turn, which is the point of listening where we do.
+        if (e.Handled)
+        {
+            return;
+        }
+
         bool control = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
 
         switch (e.Key)
@@ -419,6 +531,16 @@ public partial class ShellView : UserControl
 
             case Key.G when control:
                 ViewModel?.ToggleGraphCommand.Execute(null);
+                e.Handled = true;
+                break;
+
+            case Key.B when control && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                ViewModel?.ToggleRightPanelCommand.Execute(null);
+                e.Handled = true;
+                break;
+
+            case Key.B when control:
+                ViewModel?.ToggleLeftPanelCommand.Execute(null);
                 e.Handled = true;
                 break;
 

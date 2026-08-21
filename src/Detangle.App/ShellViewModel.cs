@@ -100,6 +100,18 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private bool _isGraphVisible;
 
+    /// <summary>
+    /// Whether the navigation rail is showing. Independent of the right-hand panel: a
+    /// reader following backlinks wants the outline and not the file tree, and someone
+    /// reading a long page wants neither.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isLeftPanelVisible = true;
+
+    /// <summary>Whether the outline and backlinks panel is showing.</summary>
+    [ObservableProperty]
+    private bool _isRightPanelVisible = true;
+
     [ObservableProperty]
     private GraphModel _graphModel = GraphModel.Empty;
 
@@ -182,6 +194,12 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Scans a vault and opens its most index-like page.</summary>
     public void OpenVault(string path)
     {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            Status = "Choose a folder to open.";
+            return;
+        }
+
         try
         {
             _vault = VaultScanner.Scan(path);
@@ -189,6 +207,15 @@ public sealed partial class ShellViewModel : ObservableObject
         catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
         {
             Status = ex.Message;
+            return;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // Text a person typed, not a path the application chose, so the ways it can be
+            // malformed are open-ended: illegal characters, a device name, a path longer
+            // than the platform allows. Path.GetFullPath rejects all of those before the
+            // scan begins, and none of them are the filesystem exceptions above.
+            Status = $"That is not a usable folder path: {ex.Message}";
             return;
         }
 
@@ -586,6 +613,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
         return written;
     }
+
+    /// <summary>Shows or hides the navigation rail.</summary>
+    [RelayCommand]
+    public void ToggleLeftPanel() => IsLeftPanelVisible = !IsLeftPanelVisible;
+
+    /// <summary>Shows or hides the outline and backlinks panel.</summary>
+    [RelayCommand]
+    public void ToggleRightPanel() => IsRightPanelVisible = !IsRightPanelVisible;
 
     /// <summary>Shows or hides the graph view.</summary>
     [RelayCommand]

@@ -20,7 +20,7 @@
         <!-- Toolbar. The vault path is the only field here, so it gets the room. -->
         <Border DockPanel.Dock="Top" Padding="10,9" BorderThickness="0,0,0,1"
                 BorderBrush="{DynamicResource Line}">
-          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
             <Button Grid.Column="0" Name="BackButton" Classes="icon" ToolTip.Tip="Back (Alt+Left)"
                     Command="{Binding GoBackCommand}">
@@ -43,17 +43,27 @@
             <Button Grid.Column="4" Name="OpenButton" Classes="primary" Content="Open vault"
                     Margin="8,0,10,0" />
 
-            <ToggleButton Grid.Column="5" Classes="icon" ToolTip.Tip="Graph view (Ctrl+G)"
+            <ToggleButton Grid.Column="5" Classes="icon" ToolTip.Tip="Navigation panel (Ctrl+B)"
+                          IsChecked="{Binding IsLeftPanelVisible}" Padding="7">
+              <Path Data="{StaticResource IconPanelLeft}" />
+            </ToggleButton>
+
+            <ToggleButton Grid.Column="6" Classes="icon" ToolTip.Tip="Outline panel (Ctrl+Shift+B)"
+                          IsChecked="{Binding IsRightPanelVisible}" Padding="7" Margin="0,0,8,0">
+              <Path Data="{StaticResource IconPanelRight}" />
+            </ToggleButton>
+
+            <ToggleButton Grid.Column="7" Classes="icon" ToolTip.Tip="Graph view (Ctrl+G)"
                           IsChecked="{Binding IsGraphVisible}" Padding="7">
               <Path Data="{StaticResource IconGraph}" />
             </ToggleButton>
 
-            <ToggleButton Grid.Column="6" Classes="icon" ToolTip.Tip="Split editor (Ctrl+E)"
+            <ToggleButton Grid.Column="8" Classes="icon" ToolTip.Tip="Split editor (Ctrl+E)"
                           IsChecked="{Binding IsEditing}" Command="{Binding ToggleEditCommand}" Padding="7">
               <Path Data="{StaticResource IconEdit}" />
             </ToggleButton>
 
-            <Button Grid.Column="7" Classes="icon" ToolTip.Tip="Export">
+            <Button Grid.Column="9" Classes="icon" ToolTip.Tip="Export">
               <Path Data="{StaticResource IconExport}" />
               <Button.Flyout>
                 <MenuFlyout>
@@ -69,12 +79,12 @@
               </Button.Flyout>
             </Button>
 
-            <Button Grid.Column="8" Classes="icon" ToolTip.Tip="Command palette (Ctrl+K)"
+            <Button Grid.Column="10" Classes="icon" ToolTip.Tip="Command palette (Ctrl+K)"
                     Command="{Binding TogglePaletteCommand}">
               <Path Data="{StaticResource IconPalette}" />
             </Button>
 
-            <Button Grid.Column="9" Classes="icon" ToolTip.Tip="Switch theme"
+            <Button Grid.Column="11" Classes="icon" ToolTip.Tip="Switch theme"
                     Command="{Binding ToggleThemeCommand}">
               <Path Data="{StaticResource IconTheme}" />
             </Button>
@@ -95,13 +105,28 @@
           </Grid>
         </Border>
 
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto,300">
+        <!--
+          Both rails collapse, and separately. The centre column is the reading pane and is
+          the only star column, so the two Auto columns beside it fold to nothing when their
+          rail is hidden - except the outline column, which carries a fixed width and needs
+          the converter to give it up. The splitters go with their rail: a resize handle for
+          a panel that is not there is a handle that resizes nothing.
+        -->
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="{Binding IsRightPanelVisible, Converter={x:Static app:PanelColumnConverter.Instance}, ConverterParameter=300}" />
+          </Grid.ColumnDefinitions>
 
           <!--
             The navigation rail. Four icons down the side rather than four text tabs
             across a narrow panel, which never fitted and wrapped onto two lines.
           -->
           <TabControl Grid.Column="0" Name="LeftRail" TabStripPlacement="Left"
+                      IsVisible="{Binding IsLeftPanelVisible}"
                       Background="{DynamicResource Panel}" BorderThickness="0,0,1,0"
                       BorderBrush="{DynamicResource Line}" Width="294" MinWidth="150">
 
@@ -200,7 +225,7 @@
             </TabItem>
           </TabControl>
 
-          <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+          <GridSplitter Grid.Column="1" ResizeDirection="Columns" IsVisible="{Binding IsLeftPanelVisible}" />
 
           <!-- Centre: the document, or the graph over the whole vault. -->
           <Grid Grid.Column="2" Background="{DynamicResource Ink}">
@@ -309,11 +334,11 @@
             </DockPanel>
           </Grid>
 
-          <GridSplitter Grid.Column="3" ResizeDirection="Columns" />
+          <GridSplitter Grid.Column="3" ResizeDirection="Columns" IsVisible="{Binding IsRightPanelVisible}" />
 
           <!-- Right: what points at this page, and what it contains. -->
           <!-- A minimum so the splitter cannot crush the rail down to clipped initials. -->
-          <TabControl Grid.Column="4" Name="RightRail" MinWidth="210"
+          <TabControl Grid.Column="4" Name="RightRail" MinWidth="210" IsVisible="{Binding IsRightPanelVisible}"
                       Background="{DynamicResource Panel}"
                       BorderThickness="1,0,0,0" BorderBrush="{DynamicResource Line}">
 
