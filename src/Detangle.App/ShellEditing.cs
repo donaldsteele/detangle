@@ -86,6 +86,15 @@ public sealed partial class ShellViewModel
             return SaveOutcome.Failed;
         }
 
+        if (IsDetachedCopy)
+        {
+            // Writing would appear to work and then be thrown away with the tab. Refusing
+            // is the only honest answer available here.
+            Status = "This vault is a copy held in the browser. Edits cannot be written back to your folder.";
+
+            return SaveOutcome.Failed;
+        }
+
         SaveResult result = DocumentEditor.Save(session, EditorText, overwriteExternalChanges);
 
         Status = result.Outcome switch

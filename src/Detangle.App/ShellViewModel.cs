@@ -191,9 +191,28 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>True when going forward is possible.</summary>
     public bool CanGoForward => _forward.Count > 0;
 
+    /// <summary>
+    /// True when the open vault is a copy rather than the reader's own folder.
+    /// <para>
+    /// The browser build cannot hand a scanner a folder on someone's disk, so a folder
+    /// opened there is copied into memory first. Everything reads normally; what must not
+    /// happen is a save, which would write into a filesystem that disappears with the tab
+    /// and lose the reader's work while telling them it had been saved.
+    /// </para>
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDetachedCopy;
+
     /// <summary>Scans a vault and opens its most index-like page.</summary>
-    public void OpenVault(string path)
+    public void OpenVault(string path) => OpenVault(path, isDetachedCopy: false);
+
+    /// <summary>Scans a vault and opens its most index-like page.</summary>
+    /// <param name="path">The folder to scan.</param>
+    /// <param name="isDetachedCopy">True when the folder is a copy that cannot be saved to.</param>
+    public void OpenVault(string path, bool isDetachedCopy)
     {
+        IsDetachedCopy = isDetachedCopy;
+
         if (string.IsNullOrWhiteSpace(path))
         {
             Status = "Choose a folder to open.";

@@ -158,9 +158,92 @@ public partial class ShellView : UserControl
                 SuggestedStartLocation = start,
             }).ConfigureAwait(true);
 
-        if (folders is [{ } folder] && folder.TryGetLocalPath() is { Length: > 0 } path)
+        if (folders is not [{ } folder])
+        {
+            return;
+        }
+
+        if (folder.TryGetLocalPath() is { Length: > 0 } path)
         {
             viewModel.OpenVault(path);
+
+            return;
+        }
+
+        await ImportFolder(viewModel, folder).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Copies a picked folder into memory and opens that, for platforms whose folders have
+    /// no path. See <see cref="StorageVaultImporter"/> for why that is necessary and what
+    /// it costs.
+    /// </summary>
+    private static async Task ImportFolder(ShellViewModel viewModel, IStorageFolder folder)
+    {
+        string name = string.Concat((folder.Name.Length == 0 ? "vault" : folder.Name)
+            .Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c));
+
+        string root = Path.Combine(Path.GetTempPath(), "detangle-vaults", name);
+
+        try
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            viewModel.Status = $"That folder could not be opened: {ex.Message}";
+
+            return;
+        }
+
+        viewModel.Status = $"Reading {folder.Name}…";
+
+        StorageVaultImporter.Result result;
+
+        try
+        {
+            result = await StorageVaultImporter.ImportAsync(() => Entries(folder), root).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            viewModel.Status = $"That folder could not be read: {ex.Message}";
+
+            return;
+        }
+
+        if (result.Files == 0)
+        {
+            viewModel.Status = $"{folder.Name} holds nothing this reader can open.";
+
+            return;
+        }
+
+        viewModel.OpenVault(root, isDetachedCopy: true);
+
+        viewModel.Status =
+            $"Opened a copy of {folder.Name} — {result.Files} files, held in this tab only."
+            + " Nothing was uploaded, and edits cannot be written back."
+            + (result.Truncated ? $" Stopped at {StorageVaultImporter.MaxFiles} files." : string.Empty);
+    }
+
+    /// <summary>
+    /// Presents an Avalonia folder as entries the importer understands. The framework's
+    /// storage interfaces cannot be implemented outside it, so this is the seam: thin
+    /// enough to read in one go, with every decision on the other side of it.
+    /// </summary>
+    private static async IAsyncEnumerable<StorageVaultImporter.Entry> Entries(IStorageFolder folder)
+    {
+        await foreach (IStorageItem item in folder.GetItemsAsync().ConfigureAwait(true))
+        {
+            yield return item switch
+            {
+                IStorageFile file => new StorageVaultImporter.Entry(file.Name, file.OpenReadAsync, null),
+                IStorageFolder child => new StorageVaultImporter.Entry(child.Name, null, () => Entries(child)),
+                _ => new StorageVaultImporter.Entry(item.Name, null, null),
+            };
         }
     }
 
