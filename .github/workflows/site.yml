@@ -40,8 +40,8 @@ jobs:
       - name: Install the WebAssembly workload
         run: dotnet workload install wasm-tools
 
-      # No CNAME: the site serves from github.io until detangle.dev's DNS points at
-      # GitHub. Adding one before then makes Pages serve a domain that does not resolve.
+      # site/CNAME carries the custom domain into the artifact. Pages also stores it in
+      # the repository's own settings; both have to agree or a deploy silently drops it.
       - name: Assemble the static pages
         run: |
           mkdir -p public

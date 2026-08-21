@@ -12,16 +12,15 @@ resolves some subset of these and silently drops the rest.
 Detangle resolves the link, tells you which rule it used, and lists every link it
 couldn't.
 
-**[Try it in your browser](https://donaldsteele.github.io/detangle/demo/)** ·
-[Documentation](https://donaldsteele.github.io/detangle/docs/) ·
-[Site](https://donaldsteele.github.io/detangle/)
+**[Try it in your browser](https://detangle.dev/demo/)** ·
+[Documentation](https://detangle.dev/docs/) ·
+[Site](https://detangle.dev)
 
 ## Status
 
 All nine phases of [plan.md](plan.md) are implemented, and the site and demo are
 deployed. Nothing has been released yet: the release workflow has never run against a tag,
-so the installers and the in-app updater are written but unproven. The custom domain is
-not wired up either — the site serves from github.io until detangle.dev points at it.
+so the installers and the in-app updater are written but unproven.
 
 ## What it does
 
