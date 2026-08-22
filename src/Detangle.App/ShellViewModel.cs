@@ -60,6 +60,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly List<VaultDocument> _back = [];
     private readonly List<VaultDocument> _forward = [];
 
+    private ChoiceStore _choices = ChoiceStore.Empty;
     private VaultSnapshot? _vault;
     private RenderModelBuilder? _builder;
     private LinkGraph? _graph;
@@ -241,15 +242,21 @@ public sealed partial class ShellViewModel : ObservableObject
         var renderer = new CachingDiagramRenderer(
             _diagramRenderer, new FileDiagramCacheStore(_vault.RootPath));
 
+        // A detached copy is a folder the browser handed over, not a place on disk, so
+        // its choices can only last as long as the tab. Opening the store with no path
+        // is what makes that true rather than pretending otherwise.
+        _choices = ChoiceStore.Open(isDetachedCopy ? null : _vault.RootPath);
+
         _builder = new RenderModelBuilder(
             _vault,
             options: new RenderOptions
             {
                 DiagramRenderer = renderer,
                 DiagramTheme = IsDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light,
-            });
+            },
+            rememberedChoices: _choices.Choices);
 
-        _graph = LinkGraph.Build(_vault);
+        _graph = LinkGraph.Build(_vault, _choices.Choices);
         VaultPath = _vault.RootPath;
 
         // Search and the file watcher are conveniences, not the product. Both need
@@ -484,6 +491,26 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // Diagrams are themed, so a theme switch has to rebuild them; the cache keys on
         // theme, so the previous palette's renders survive for the switch back.
+        RebuildBuilder();
+
+        foreach (DocumentTab tab in Tabs)
+        {
+            tab.Rendered = _builder!.Build(tab.Document);
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds the render model builder over the current vault, theme and remembered
+    /// choices. One copy, because a builder rebuilt without the choices silently forgets
+    /// every decision the reader has made.
+    /// </summary>
+    private void RebuildBuilder()
+    {
+        if (_vault is null)
+        {
+            return;
+        }
+
         _builder = new RenderModelBuilder(
             _vault,
             options: new RenderOptions
@@ -491,12 +518,8 @@ public sealed partial class ShellViewModel : ObservableObject
                 DiagramRenderer = new CachingDiagramRenderer(
                     _diagramRenderer, new FileDiagramCacheStore(_vault.RootPath)),
                 DiagramTheme = IsDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light,
-            });
-
-        foreach (DocumentTab tab in Tabs)
-        {
-            tab.Rendered = _builder.Build(tab.Document);
-        }
+            },
+            rememberedChoices: _choices.Choices);
     }
 
     /// <summary>Reindexes and re-examines after files changed outside the app.</summary>
@@ -521,7 +544,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         _vault = rescanned;
-        _graph = LinkGraph.Build(_vault);
+        _graph = LinkGraph.Build(_vault, _choices.Choices);
         _search?.Rebuild(_vault, ReadContent);
 
         foreach (VaultChange change in changes)
@@ -596,6 +619,56 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             Findings[index] = LinkDoctor.SuggestFix(finding);
         }
+    }
+
+    /// <summary>
+    /// Records which document an ambiguous link was meant to reach, and re-resolves the
+    /// vault so every copy of that link follows the reader's choice from now on.
+    /// <para>
+    /// This is the only step in the chain the reader writes. Every other rule is
+    /// deterministic and applies everywhere; this one applies to one target written in
+    /// one folder, which is the narrowest thing that can be said about an ambiguity
+    /// without guessing again (plan.md section 5.4).
+    /// </para>
+    /// </summary>
+    /// <param name="resolution">The ambiguous link the reader settled.</param>
+    /// <param name="chosen">The document they picked.</param>
+    public void Settle(LinkResolution resolution, VaultDocument chosen)
+    {
+        if (_vault is null || _graph is null)
+        {
+            return;
+        }
+
+        VaultDocument? source = _vault.Index
+            .ByRelativePath(resolution.Link.SourcePath)
+            .FirstOrDefault();
+
+        if (source is null)
+        {
+            return;
+        }
+
+        bool persisted = _choices.Remember(source, resolution.Link.RawTarget, chosen);
+
+        // Everything downstream reads the chain's answers, so they all have to be asked
+        // again: the graph the Doctor and the graph view are built from, and every open
+        // tab, whose links carry the rule that resolved them.
+        _graph = LinkGraph.Build(_vault, _choices.Choices);
+        RebuildBuilder();
+
+        foreach (DocumentTab tab in Tabs)
+        {
+            tab.Rendered = _builder!.Build(tab.Document);
+        }
+
+        RefreshFindings();
+        RebuildGraphIfShown();
+
+        Status = persisted
+            ? $"\"{resolution.Link.RawTarget}\" now means {chosen.RelativePath} in this vault."
+            : $"\"{resolution.Link.RawTarget}\" now means {chosen.RelativePath} "
+                + "until this tab is closed; this copy cannot be written to.";
     }
 
     /// <summary>

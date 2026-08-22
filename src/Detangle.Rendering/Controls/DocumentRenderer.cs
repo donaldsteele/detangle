@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
@@ -8,6 +9,7 @@ using Avalonia.Svg.Skia;
 using Detangle.Core.Dbml;
 using Detangle.Core.Linking;
 using Detangle.Core.Parsing;
+using Detangle.Core.Vault;
 using Detangle.Rendering.Diagrams;
 using Detangle.Rendering.Highlighting;
 using Detangle.Rendering.Model;
@@ -64,6 +66,13 @@ public sealed class DocumentRenderer
     /// renderer itself knows nothing about.
     /// </summary>
     public Func<LinkResolution, Control?>? PreviewFactory { get; set; }
+
+    /// <summary>
+    /// Called when a reader picks which document an ambiguous link was meant to reach.
+    /// The shell supplies this because remembering the choice means writing beside the
+    /// vault, which the renderer knows nothing about (plan.md section 15.2).
+    /// </summary>
+    public Action<LinkResolution, VaultDocument>? ChoiceMade { get; set; }
 
     /// <summary>Renders a document into a scrollable panel of blocks.</summary>
     public Control Render(RenderDocument document)
@@ -1012,7 +1021,98 @@ public sealed class DocumentRenderer
             AttachPreview(button, resolution, tooltip);
         }
 
-        return button;
+        // An ambiguous link gets a second, separate control rather than a flyout on the
+        // link itself: the link still has to navigate on click, and a flyout there would
+        // mean every ambiguous link in the vault stopped being followable.
+        return resolution.IsAmbiguous && ChoiceMade is not null
+            ? new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Children = { button, ChoiceMarker(resolution) },
+            }
+            : button;
+    }
+
+    /// <summary>
+    /// The affordance that turns an ambiguity into a decision: a small marker after the
+    /// link, listing every document the target matched, that remembers the one picked.
+    /// </summary>
+    private Control ChoiceMarker(LinkResolution resolution)
+    {
+        var marker = new Button
+        {
+            Content = new TextBlock
+            {
+                Text = resolution.Candidates.Count.ToString(CultureInfo.InvariantCulture),
+                FontSize = _theme.FontSize * 0.7,
+                FontFamily = _theme.CodeFontFamily,
+                Foreground = _theme.AmbiguousLink,
+            },
+            Background = Brushes.Transparent,
+            BorderBrush = _theme.AmbiguousLink,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(3, 0, 3, 0),
+            Margin = new Thickness(3, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+        };
+
+        ToolTip.SetTip(
+            marker,
+            $"\"{resolution.Link.RawTarget}\" matches {resolution.Candidates.Count} files. "
+            + "Pick the one it means and it will be remembered for this vault.");
+
+        var choices = new StackPanel { Spacing = 2, MinWidth = 220 };
+
+        foreach (VaultDocument candidate in resolution.Candidates)
+        {
+            bool current = candidate.RelativePath == resolution.Target?.RelativePath;
+
+            var entry = new Button
+            {
+                Content = new TextBlock
+                {
+                    Text = current ? candidate.RelativePath + "  (shown now)" : candidate.RelativePath,
+                    FontSize = _theme.FontSize * 0.85,
+                    FontFamily = _theme.CodeFontFamily,
+                    Foreground = _theme.Foreground,
+                },
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 5, 8, 5),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            };
+
+            VaultDocument chosen = candidate;
+
+            entry.Click += (_, _) =>
+            {
+                marker.Flyout?.Hide();
+                ChoiceMade?.Invoke(resolution, chosen);
+            };
+
+            choices.Children.Add(entry);
+        }
+
+        marker.Flyout = new Flyout
+        {
+            Placement = PlacementMode.BottomEdgeAlignedLeft,
+            Content = new StackPanel
+            {
+                Spacing = 6,
+                Children =
+                {
+                    Caption($"\"{resolution.Link.RawTarget}\" could mean:"),
+                    choices,
+                },
+            },
+        };
+
+        return marker;
     }
 
     /// <summary>

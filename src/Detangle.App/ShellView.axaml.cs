@@ -406,6 +406,7 @@ public partial class ShellView : UserControl
 
         renderer.LinkActivated += OnLinkActivated;
         renderer.PreviewFactory = BuildPreview;
+        renderer.ChoiceMade = (resolution, chosen) => ViewModel?.Settle(resolution, chosen);
 
         return renderer;
     }

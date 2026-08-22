@@ -640,6 +640,14 @@ scan-ignored (`VaultScanner.cs:20`). On a browser vault or a `StorageVaultImport
 (`IsDetachedCopy`, writes refused at `ShellEditing.cs:89`) the choice must visibly degrade to
 session-only rather than claim a save that dies with the tab.
 
+**Shipped.** `ChoiceStore` writes `.detangle/choices.json` whole-then-move, reads it with
+`JsonDocument` rather than the reflection serializer the browser head's `TrimMode=full`
+would reject, and treats an unreadable file as no choices rather than a broken vault. The
+picker is a small count marker rendered *after* an ambiguous link rather than a flyout on
+the link itself, so the link still navigates. `RebuildBuilder` exists because the theme
+switch and a settled choice both rebuild the render model and only one of them used to
+carry the choices. A detached copy remembers for the session and says so.
+
 ### 15.3 Triage deck — the Link Doctor as a review you finish
 
 One finding at a time, showing the exact before/after line it would write, with fix, skip, or
