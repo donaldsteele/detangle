@@ -39,6 +39,27 @@ Vault
 Flavor
 : Which wiki convention the folder appears to follow.
 
+## In the browser, some of this is missing
+
+If you are reading this at detangle.dev, you are running the whole reader compiled to
+WebAssembly. It resolves links, renders diagrams, searches, and draws the graph exactly as
+the desktop application does. Four things are not the same, and none of them are bugs:
+
+Editing
+: A folder you open here is copied into the tab, not opened in place, so saving is refused
+  rather than writing somewhere that disappears when you close it.
+
+Static site export
+: A site is a folder of files and a browser will not let this build write one. Export a
+  single HTML file instead, or use the desktop application.
+
+Mathematics in exports
+: Rendered here, but written as its TeX source in an exported PDF or HTML file.
+
+Fonts and highlighting
+: A PDF exported here is set in the one typeface WebAssembly has, and fenced code is not
+  syntax highlighted, because the grammars are 6.7 MB the demo does not download.
+
 ## What's next?
 
 Read [[Attention Is All You Need]] to see resolution provenance on a real page, then open

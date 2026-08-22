@@ -123,12 +123,29 @@ public partial class ShellView
         }
 
         IReadOnlyList<IStorageFolder> folders = await storage.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions { Title = "Export the vault as a static site", AllowMultiple = false });
+            new FolderPickerOpenOptions { Title = "Export the vault as a static site", AllowMultiple = false })
+            .ConfigureAwait(true);
 
-        if (folders is [{ } folder] && folder.TryGetLocalPath() is { Length: > 0 } path)
+        if (folders is not [{ } folder])
         {
-            viewModel.ExportSite(path);
+            return;
         }
+
+        // A site is a directory of files, and this writes them by path. A browser hands
+        // back a folder it will read and write on your behalf rather than a location on
+        // disk, so there is nowhere to write to - and saying so is the whole fix here.
+        // Choosing a folder and having nothing happen at all is what this did before, and
+        // it is the third time that has been the answer to a question nobody was asked.
+        if (folder.TryGetLocalPath() is not { Length: > 0 } path)
+        {
+            viewModel.Status =
+                "A static site is a folder of files, which this build cannot write. "
+                + "Use Export \u2192 Single HTML file instead, or run the desktop application.";
+
+            return;
+        }
+
+        viewModel.ExportSite(path);
     }
 
     private async Task ExportSingleFile(bool currentPageOnly)
