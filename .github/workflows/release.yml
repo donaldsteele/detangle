@@ -1,8 +1,12 @@
 name: Release
 
 # One tag produces every artifact. macOS builds run on macOS because notarization needs
-# Apple's toolchain, and the Intel build runs on an Intel runner so the .app it signs is
-# the .app it tested.
+# Apple's toolchain. Both of them run on Apple Silicon: the Intel build used to run on an
+# Intel runner so the .app it signed was the .app it tested, but GitHub has retired that
+# image and a job asking for it now waits for a runner that will never arrive - the first
+# release sat queued for twenty-five minutes with none assigned. The Intel build is a
+# cross-publish from the arm64 host instead, which .NET does for a self-contained,
+# non-AOT build without needing the target architecture.
 on:
   push:
     tags: ['v*']
@@ -71,7 +75,7 @@ jobs:
             runner: ubuntu-latest
             channel: linux-arm64
           - rid: osx-x64
-            runner: macos-13
+            runner: macos-latest
             channel: osx-x64
           - rid: osx-arm64
             runner: macos-latest
