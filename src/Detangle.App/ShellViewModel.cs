@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Detangle.Core.Diagnostics;
 using Detangle.Core.Graph;
+using Detangle.Core.History;
 using Detangle.Core.Linking;
 using Detangle.Core.Search;
 using Detangle.Core.Vault;
@@ -297,6 +298,7 @@ public sealed partial class ShellViewModel : ObservableObject
             _watcher = null;
         }
 
+        RefreshDelta();
         RefreshFindings();
 
         NavigationTreeBuilder.Result navigation = NavigationTreeBuilder.Build(_vault, ReadContent);
@@ -568,6 +570,7 @@ public sealed partial class ShellViewModel : ObservableObject
             }
         }
 
+        RefreshDelta();
         RefreshFindings();
         RunSearch();
         RebuildGraphIfShown();
@@ -590,8 +593,11 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
+        IReadOnlySet<string> changed = Delta.TouchedDocuments;
+
         foreach (Finding finding in LinkDoctor.Examine(_graph, ReadContent)
             .Where(f => !_state.IsIgnored(f))
+            .Where(f => !ShowOnlyChanged || changed.Contains(f.Document.RelativePath))
             .OrderBy(f => f.Severity)
             .ThenBy(f => f.Document.RelativePath, StringComparer.OrdinalIgnoreCase))
         {
@@ -621,6 +627,59 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>How many findings the reader has dismissed in this vault.</summary>
     [ObservableProperty]
     public partial int IgnoredCount { get; set; }
+
+    /// <summary>What changed since the reader last marked the vault, in one line.</summary>
+    [ObservableProperty]
+    public partial string? ChangeSummary { get; set; }
+
+    /// <summary>True when the triage list is restricted to what changed since the baseline.</summary>
+    [ObservableProperty]
+    public partial bool ShowOnlyChanged { get; set; }
+
+    /// <summary>The difference between the marked baseline and the vault as it stands.</summary>
+    public VaultDelta Delta { get; private set; } = VaultDelta.None;
+
+    /// <summary>
+    /// Marks the vault's current state as the one to compare against from now on.
+    /// <para>
+    /// Explicit, and deliberately not automatic. Nothing tells Detangle that a generation
+    /// run has finished: the watcher debounces at 250 ms and fires dozens of times while
+    /// one is under way, so a baseline taken on rescan would as often as not be a
+    /// half-written corpus compared against itself.
+    /// </para>
+    /// </summary>
+    public void MarkBaseline()
+    {
+        if (_graph is null)
+        {
+            return;
+        }
+
+        bool persisted = _state.MarkBaseline(VaultSnapshotRecord.Take(_graph, ReadContent));
+
+        RefreshDelta();
+
+        Status = persisted
+            ? "Marked. From now on, changes are measured against the vault as it stands."
+            : "Marked for this session; this copy cannot be written to.";
+    }
+
+    /// <summary>Recomputes what has changed since the baseline.</summary>
+    private void RefreshDelta()
+    {
+        Delta = _graph is null
+            ? VaultDelta.None
+            : VaultDelta.Compare(_state.Baseline, VaultSnapshotRecord.Take(_graph, ReadContent));
+
+        ChangeSummary = Delta.Summary();
+
+        if (Delta.IsEmpty)
+        {
+            ShowOnlyChanged = false;
+        }
+    }
+
+    partial void OnShowOnlyChangedChanged(bool value) => RefreshFindings();
 
     /// <summary>
     /// What applying a finding's fix would do to its line: the text as it stands and the

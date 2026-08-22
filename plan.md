@@ -720,6 +720,18 @@ or a quiet-period threshold — designed before any code is written. Secondary: 
 renames must match on frontmatter `id`, then normalized stem, never on path, and it can still
 be wrong.
 
+**Shipped**, with the baseline moment answered the blunt way: a "Mark this state" button, and
+no automatic snapshot at all. A quiet-period threshold was rejected — it guesses at when a
+generator finished, and a guess that is wrong produces a diff against half a corpus, which
+is worse than no diff. `VaultSnapshotRecord` and `VaultDelta` live in `Detangle.Core/History`;
+the baseline is a third section of `.detangle/state.json` rather than a fourth sidecar file,
+so `VaultState` is now the single home the section called for. Documents are compared by a
+SHA-256 of the text with line endings and Unicode composition normalized, since a generator
+stamps fresh times on files it rewrote identically and a Windows checkout of a Linux-written
+repository differs in every line ending. With no baseline the delta is empty rather than
+"the whole vault is new". `ShowOnlyChanged` is the "since I last marked" filter on the triage
+deck.
+
 ### 15.5 `detangle lint` — the report the generator can read
 
 Run the same Link Doctor from a terminal or CI and get machine-readable, rule-attributed

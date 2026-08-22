@@ -62,6 +62,7 @@ public partial class ShellView : UserControl
         ApplyFixButton.Click += OnApplyFixClick;
         IgnoreFindingButton.Click += OnIgnoreFindingClick;
         ShowIgnoredButton.Click += (_, _) => ViewModel?.ShowIgnored();
+        MarkBaselineButton.Click += (_, _) => ViewModel?.MarkBaseline();
         _graph = CreateGraphCanvas(isDark: ActualThemeVariant == ThemeVariant.Dark);
         GraphHost.Children.Add(_graph);
         GraphFitButton.Click += (_, _) => _graph.FitToView();

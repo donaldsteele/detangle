@@ -186,6 +186,23 @@
                           Content="{Binding IgnoredCount, StringFormat='Show {0} ignored'}"
                           IsVisible="{Binding IgnoredCount}"
                           ToolTip.Tip="Reports every finding you have dismissed in this vault again" />
+
+                  <!--
+                    Marking is explicit because nothing tells the application that a
+                    generation run has finished; the watcher fires dozens of times while
+                    one is under way (plan.md section 15.4).
+                  -->
+                  <Button Name="MarkBaselineButton" Content="Mark this state"
+                          HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Measures every later change against the vault as it stands now" />
+
+                  <TextBlock Text="{Binding ChangeSummary}" Classes="secondary" TextWrapping="Wrap"
+                             IsVisible="{Binding ChangeSummary, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                  <CheckBox Name="OnlyChangedBox" Content="Since I last marked"
+                            IsChecked="{Binding ShowOnlyChanged}"
+                            IsVisible="{Binding ChangeSummary, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            ToolTip.Tip="Shows only findings in pages that changed since the baseline" />
                 </StackPanel>
 
                 <!--
