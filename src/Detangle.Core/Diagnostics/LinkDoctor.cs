@@ -30,6 +30,20 @@ public enum FindingKind
 
     /// <summary>A link that only resolved because the chain worked for it.</summary>
     NonCanonicalLink,
+
+    /// <summary>
+    /// A link whose fragment matched no heading or block in the page it reached. The link
+    /// still works and still navigates (section 5.6); the reader lands at the top of the
+    /// page instead of at the section, which is the commonest defect in a generated wiki
+    /// and until now the only one Detangle diagnosed and never reported.
+    /// </summary>
+    BrokenAnchor,
+
+    /// <summary>
+    /// A fragment that only matched because it was slugified first — written in one
+    /// dialect's anchor form and read in another. It works here and breaks on GitHub.
+    /// </summary>
+    AnchorDialectDrift,
 }
 
 /// <summary>How serious a finding is.</summary>
@@ -74,6 +88,15 @@ public sealed record Finding
 
     /// <summary>Other documents involved — ambiguity candidates, duplicate slugs.</summary>
     public IReadOnlyList<VaultDocument> Related { get; init; } = [];
+
+    /// <summary>
+    /// The heading a broken fragment probably meant, as written in the target document.
+    /// Filled in by <see cref="LinkDoctor.SuggestFix"/>, and deliberately not the same
+    /// field as <see cref="SuggestedRewrite"/>: a fragment is replaced inside the link
+    /// rather than instead of it, and a near-miss heading is a guess rather than the one
+    /// correct answer a bulk fix is allowed to apply.
+    /// </summary>
+    public string? SuggestedAnchor { get; init; }
 
     /// <inheritdoc />
     public override string ToString() => $"{Severity} {Kind}: {Document.RelativePath}: {Message}";
@@ -128,6 +151,7 @@ public static class LinkDoctor
         foreach (VaultDocument document in graph.Vault.Documents.Where(d => d.IsMarkdown))
         {
             findings.AddRange(ExamineLinks(graph, document));
+            findings.AddRange(ExamineAnchors(graph, document));
             findings.AddRange(ExamineDocument(graph, document, contentReader, options));
         }
 
@@ -202,6 +226,81 @@ public static class LinkDoctor
             }
         }
     }
+
+    /// <summary>
+    /// The findings for one document's fragments (plan.md section 15.1).
+    /// <para>
+    /// Kept separate from <see cref="ExamineLinks"/> because the two ask different
+    /// questions of the same resolution: that one is about which file the link reached,
+    /// this one is about where in it the reader lands. A link can be perfect by the first
+    /// measure and useless by the second, which is exactly what a renamed heading does to
+    /// a wiki nobody rewrote.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<Finding> ExamineAnchors(LinkGraph graph, VaultDocument document)
+    {
+        foreach (LinkResolution resolution in graph.OutboundFrom(document))
+        {
+            // A self-reference resolves to its own document, so it arrives here with a
+            // target like any other link and a page-local heading typo is caught.
+            if (resolution.Target is not { } target
+                || resolution.Link.Anchor is not { Length: > 0 } fragment)
+            {
+                continue;
+            }
+
+            if (resolution.Anchor.Rule == AnchorRule.Unresolved)
+            {
+                yield return new Finding
+                {
+                    Kind = FindingKind.BrokenAnchor,
+                    Severity = FindingSeverity.Warning,
+                    Document = document,
+                    Line = resolution.Link.Line,
+                    Resolution = resolution,
+                    Message = resolution.Anchor.Warning
+                        ?? $"No heading or block \"{fragment}\" in {target.RelativePath}.",
+
+                    // The nearest heading is not looked for here. Finding it means an
+                    // edit-distance pass over the target's headings, and a wiki with a
+                    // thousand stale fragments would pay for a thousand of those every
+                    // time it was examined. SuggestFix does it for the one being read.
+                };
+
+                continue;
+            }
+
+            // A fragment that only matched after slugging was written for a different
+            // renderer than the one that will read it next. It is not broken here, which
+            // is why it is Info: it breaks on GitHub, in an exported site, and in every
+            // viewer that does not run this chain.
+            if (resolution.Anchor.Rule == AnchorRule.HeadingSlug && HadToBeSlugged(target, fragment))
+            {
+                yield return new Finding
+                {
+                    Kind = FindingKind.AnchorDialectDrift,
+                    Severity = FindingSeverity.Info,
+                    Document = document,
+                    Line = resolution.Link.Line,
+                    Resolution = resolution,
+                    Message = $"\"{fragment}\" matched a heading in {target.RelativePath} "
+                        + "only after slugging; other renderers will not follow it.",
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when no heading in the document carries this fragment as its slug already.
+    /// <para>
+    /// The resolver tries a heading's own slug before slugging the fragment, so
+    /// "#overview" against "## Overview" resolves without drifting and must not be
+    /// reported — a rule that flagged it would be telling readers to "fix" links that
+    /// work everywhere.
+    /// </para>
+    /// </summary>
+    private static bool HadToBeSlugged(VaultDocument target, string fragment) =>
+        !target.Headings.Any(h => string.Equals(h.Slug, fragment, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The findings about a document itself.</summary>
     private static IEnumerable<Finding> ExamineDocument(
@@ -339,6 +438,11 @@ public static class LinkDoctor
     /// </summary>
     public static Finding SuggestFix(Finding finding)
     {
+        if (finding.Kind == FindingKind.BrokenAnchor)
+        {
+            return finding with { SuggestedAnchor = NearestHeading(finding) };
+        }
+
         if (finding.Kind != FindingKind.BrokenLink || finding.Resolution is not { } resolution)
         {
             return finding;
@@ -354,6 +458,59 @@ public static class LinkDoctor
             Related = suggestions,
         };
     }
+
+    /// <summary>
+    /// The heading in the target document a broken fragment probably meant, or null when
+    /// nothing is close enough to be worth naming.
+    /// <para>
+    /// Both the heading's recorded slug and its text slugged fresh are compared, because a
+    /// fragment can be a near miss of either: "#atention-heads" is one edit from the slug,
+    /// and "#Attention Heads!" is one edit from the text. The static slugger is used on
+    /// purpose — the instance one carries the dedup state that makes a second "Notes"
+    /// heading "notes-1", and reusing it here would compare against the wrong name.
+    /// </para>
+    /// </summary>
+    private static string? NearestHeading(Finding finding)
+    {
+        if (finding.Resolution is not { Target: { } target } resolution
+            || resolution.Link.Anchor is not { Length: > 0 } fragment)
+        {
+            return null;
+        }
+
+        // A nested path "H1#H2" addresses its last segment, the same one the resolver
+        // tried; comparing the whole path would measure the context as well.
+        string leaf = fragment.Contains('#', StringComparison.Ordinal)
+            ? fragment[(fragment.LastIndexOf('#') + 1)..].Trim()
+            : fragment;
+
+        string wanted = HeadingSlugger.SlugCore(leaf);
+
+        Heading? best = null;
+        int shortest = MaxAnchorDistance + 1;
+
+        foreach (Heading heading in target.Headings)
+        {
+            int distance = Math.Min(
+                VaultIndex.EditDistance(wanted, heading.Slug, MaxAnchorDistance),
+                VaultIndex.EditDistance(wanted, HeadingSlugger.SlugCore(heading.Text), MaxAnchorDistance));
+
+            if (distance < shortest)
+            {
+                shortest = distance;
+                best = heading;
+            }
+        }
+
+        return best?.Text;
+    }
+
+    /// <summary>
+    /// How far a fragment may be from a heading before the guess stops being useful. Two
+    /// is what the vault-name search uses, and a wrong guess here is worse than none: it
+    /// is offered as a fix rather than as a search result.
+    /// </summary>
+    private const int MaxAnchorDistance = 2;
 
     /// <summary>
     /// Rewrites a link in a document's text to its canonical target, returning the new

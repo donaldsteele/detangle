@@ -584,19 +584,28 @@ which stays true — this makes the silent part visible.
   and scores the fragment against `VaultDocument.Headings` using the **static**
   `HeadingSlugger.SlugCore` — not the instance `Slug`, which mutates dedup state — plus
   `VaultIndex.EditDistance`.
-- Order the pass so self-references are not skipped. `ExamineLinks` early-`continue`s on
-  `Target == null` / `Rule == NotAttempted`, which is exactly `[[#Heading]]`, and a
-  page-local heading typo is the commonest case of this defect.
-- `ApplyRewrite` needs an anchor-aware branch: the fragment is not part of `RawTarget`, and
-  for a self-reference `RawTarget` is `""`, where `IndexOf("")` returns 0 and today's code
-  would splice text at column 0. See section 14.1 — fix that first.
+- Self-references need no special handling, contrary to the review that proposed this:
+  `[[#Heading]]` resolves to its own document with `Rule = ExactVaultPath`, so it arrives
+  in the pass with a target like any other link. A page-local heading typo — the
+  commonest case of this defect — is caught without reordering anything.
 - Do **not** widen `SafeToFix` (`LinkDoctor.cs:402`) to include anchor guesses. An
-  edit-distance-2 heading match is not a one-correct-answer rewrite.
+  edit-distance-2 heading match is not a one-correct-answer rewrite, so the guess is
+  carried on its own `Finding.SuggestedAnchor` rather than on `SuggestedRewrite`, and
+  applying it waits for the per-finding action in 15.3.
+- `ApplyRewrite` will need an anchor-aware branch when that action lands: the fragment is
+  not part of `RawTarget`, and for a self-reference `RawTarget` is `""`. Section 14.1 has
+  already made the empty case refuse rather than splice at column 0.
 
 Effort S. Risk: dialect-drift false positives. `AnchorResolver` tries `RawHeading` before
 `HeadingSlug`, so `#overview` against `## Overview` already resolves; the drift rule must
 require that the fragment is *not* already a valid slug for the matched heading, or it will
 "fix" links that work everywhere. Ship `BrokenAnchor` first, `AnchorDialectDrift` behind it.
+
+**Shipped.** Both kinds report, `SuggestFix` names the nearest heading on demand, and the
+Doctor panel shows the guess. `FixAllSafe` also had to learn to rewrite a line's links
+right to left: with the destination now located from its recorded column, fixing a
+left-hand link first moves every column to its right, and a canonical target shorter than
+what it replaced left the next link unfixed.
 
 ### 15.2 Settle — the click that makes an ambiguous link yours
 

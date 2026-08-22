@@ -200,6 +200,9 @@
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Message}" Classes="secondary"
                                    TextWrapping="Wrap" MaxLines="3" />
+                        <TextBlock Text="{Binding SuggestedAnchor, StringFormat='Probably &quot;{0}&quot;'}"
+                                   Classes="identifier" TextTrimming="CharacterEllipsis"
+                                   IsVisible="{Binding SuggestedAnchor, Converter={x:Static ObjectConverters.IsNotNull}}" />
                       </StackPanel>
                     </DataTemplate>
                   </ListBox.ItemTemplate>

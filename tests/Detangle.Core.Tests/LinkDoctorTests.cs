@@ -169,6 +169,100 @@ public class LinkDoctorTests
     }
 
     [Fact]
+    public void ReportsAFragmentThatMatchesNoHeading()
+    {
+        Finding finding = Assert.Single(
+            Examine(
+                ("page.md", "See [[other#Attention Heads]].\n"),
+                ("other.md", "# Other\n\n## Attention Head\n")),
+            f => f.Kind == FindingKind.BrokenAnchor);
+
+        // The link is not broken and must not be reported as if it were: it reaches the
+        // page, and only the section is missing (section 5.6).
+        Assert.Equal(FindingSeverity.Warning, finding.Severity);
+        Assert.Equal(1, finding.Line);
+        Assert.Contains("Attention Heads", finding.Message, StringComparison.Ordinal);
+
+        // Naming the near miss costs an edit-distance pass over the target's headings,
+        // which is paid for the finding a reader opens rather than for every fragment.
+        Assert.Null(finding.SuggestedAnchor);
+    }
+
+    [Fact]
+    public void ReportsAFragmentInThePageItIsWrittenIn()
+    {
+        // "[[#Heading]]" resolves to its own document, and a page-local heading typo is
+        // the commonest form of this defect.
+        Finding finding = Assert.Single(
+            Examine(("page.md", "# Page\n\n## Overview\n\nBack to [[#Overvieww]].\n")),
+            f => f.Kind == FindingKind.BrokenAnchor);
+
+        Assert.Equal("page.md", finding.Document.RelativePath);
+        Assert.Equal("Overview", LinkDoctor.SuggestFix(finding).SuggestedAnchor);
+    }
+
+    [Fact]
+    public void SuggestingAFixNamesTheHeadingTheFragmentProbablyMeant()
+    {
+        Finding finding = Assert.Single(
+            Examine(
+                ("page.md", "See [[other#atention-heads]].\n"),
+                ("other.md", "# Other\n\n## Attention Heads\n")),
+            f => f.Kind == FindingKind.BrokenAnchor);
+
+        Assert.Equal("Attention Heads", LinkDoctor.SuggestFix(finding).SuggestedAnchor);
+    }
+
+    [Fact]
+    public void AFragmentNothingResemblesGetsNoGuess()
+    {
+        Finding finding = Assert.Single(
+            Examine(
+                ("page.md", "See [[other#Quantum Chromodynamics]].\n"),
+                ("other.md", "# Other\n\n## Attention Heads\n")),
+            f => f.Kind == FindingKind.BrokenAnchor);
+
+        Assert.Null(LinkDoctor.SuggestFix(finding).SuggestedAnchor);
+    }
+
+    [Fact]
+    public void AFragmentThatResolvesIsNotReported()
+    {
+        IReadOnlyList<Finding> findings = Examine(
+            ("page.md", "See [[other#Attention Heads]] and [[other#L10-L20]].\n"),
+            ("other.md", "# Other\n\n## Attention Heads\n"));
+
+        // The second is a GitHub line citation, not a heading that went missing.
+        Assert.DoesNotContain(findings, f => f.Kind == FindingKind.BrokenAnchor);
+    }
+
+    [Fact]
+    public void AFragmentWrittenAsTheHeadingsOwnSlugDoesNotDrift()
+    {
+        // "#overview" against "## Overview" is how Obsidian, GitHub and every static site
+        // generator write it. Reporting it would be telling readers to break working links.
+        IReadOnlyList<Finding> findings = Examine(
+            ("page.md", "See [[other#overview]].\n"),
+            ("other.md", "# Other\n\n## Overview\n"));
+
+        Assert.DoesNotContain(findings, f => f.Kind == FindingKind.AnchorDialectDrift);
+        Assert.DoesNotContain(findings, f => f.Kind == FindingKind.BrokenAnchor);
+    }
+
+    [Fact]
+    public void ReportsAFragmentThatOnlyMatchedAfterSlugging()
+    {
+        Finding finding = Assert.Single(
+            Examine(
+                ("page.md", "See [[other#Attention, Heads!]].\n"),
+                ("other.md", "# Other\n\n## Attention Heads\n")),
+            f => f.Kind == FindingKind.AnchorDialectDrift);
+
+        // It works here and nowhere else, which is advice rather than an error.
+        Assert.Equal(FindingSeverity.Info, finding.Severity);
+    }
+
+    [Fact]
     public void SafeToFixIsOnlyTheLinksWithOneCorrectAnswer()
     {
         IReadOnlyList<Finding> findings = Examine(

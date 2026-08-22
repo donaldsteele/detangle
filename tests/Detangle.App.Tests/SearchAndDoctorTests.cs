@@ -104,6 +104,55 @@ public class SearchAndDoctorTests : IDisposable
     }
 
     [Fact]
+    public void FixAllSafeRewritesEveryLinkOnALineThatHasSeveral()
+    {
+        // The canonical target here is far shorter than the alias it replaces, so fixing
+        // the left-hand link first pulls the right-hand one back from the column it was
+        // recorded at, and scanning forward from a stale column walks straight past it.
+        File.WriteAllText(
+            Path.Combine(_root, "index.md"),
+            "# Index\n\nSee [[The Quarry Page]] and also [[The Quarry Page]] again.\n");
+
+        File.WriteAllText(
+            Path.Combine(_root, "t.md"),
+            "---\ntitle: T\naliases: [The Quarry Page]\n---\n\n# T\n");
+
+        ShellViewModel shell = Open();
+
+        Assert.Equal(1, shell.FixAllSafe());
+
+        string rewritten = File.ReadAllText(Path.Combine(_root, "index.md"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Equal("# Index\n\nSee [[t]] and also [[t]] again.\n", rewritten);
+    }
+
+    [Fact]
+    public void ABrokenFragmentIsReportedAndNamesTheHeadingItProbablyMeant()
+    {
+        File.WriteAllText(
+            Path.Combine(_root, "index.md"),
+            "# Index\n\nSee [[My Target#The Quary]].\n");
+
+        File.WriteAllText(
+            Path.Combine(_root, "notes", "my-target.md"),
+            "# My Target\n\n## The Quarry\n\nHere.\n");
+
+        ShellViewModel shell = Open();
+
+        Finding finding = Assert.Single(shell.Findings, f => f.Kind == FindingKind.BrokenAnchor);
+
+        // The guess is not made until the reader opens the finding.
+        Assert.Null(finding.SuggestedAnchor);
+
+        shell.Suggest(finding);
+
+        Assert.Equal(
+            "The Quarry",
+            Assert.Single(shell.Findings, f => f.Kind == FindingKind.BrokenAnchor).SuggestedAnchor);
+    }
+
+    [Fact]
     public void FixAllSafeLeavesTheVaultAloneWhenThereIsNothingSafeToDo()
     {
         ShellViewModel shell = Open();

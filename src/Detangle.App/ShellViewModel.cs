@@ -573,12 +573,19 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Fills in what a broken link probably meant, in place, the first time a reader
-    /// opens that finding.
+    /// Fills in what a broken link or a broken fragment probably meant, in place, the
+    /// first time a reader opens that finding.
     /// </summary>
     public void Suggest(Finding finding)
     {
-        if (finding.Kind != FindingKind.BrokenLink || finding.SuggestedRewrite is not null)
+        bool wanted = finding.Kind switch
+        {
+            FindingKind.BrokenLink => finding.SuggestedRewrite is null,
+            FindingKind.BrokenAnchor => finding.SuggestedAnchor is null,
+            _ => false,
+        };
+
+        if (!wanted)
         {
             return;
         }
@@ -612,9 +619,14 @@ public sealed partial class ShellViewModel : ObservableObject
                 continue;
             }
 
-            // Later lines first: rewriting from the bottom up keeps every remaining
-            // finding's line number valid.
-            foreach (Finding finding in group.OrderByDescending(f => f.Line))
+            // Later lines first, and later columns first within a line: rewriting from
+            // the bottom up keeps every remaining finding's line number valid, and from
+            // the right keeps every remaining finding's column valid. A canonical target
+            // is rarely the same length as what it replaces, so two links on one line
+            // would otherwise shift each other.
+            foreach (Finding finding in group
+                .OrderByDescending(f => f.Line)
+                .ThenByDescending(f => f.Resolution?.Link.Column ?? 0))
             {
                 content = LinkDoctor.ApplyRewrite(content, finding) ?? content;
             }
