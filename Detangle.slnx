@@ -4,6 +4,7 @@
     <Project Path="src/Detangle.Core/Detangle.Core.csproj" />
     <Project Path="src/Detangle.Desktop/Detangle.Desktop.csproj" />
     <Project Path="src/Detangle.Highlighting/Detangle.Highlighting.csproj" />
+    <Project Path="src/Detangle.Lint/Detangle.Lint.csproj" />
     <Project Path="src/Detangle.Rendering/Detangle.Rendering.csproj" />
   </Folder>
   <!--

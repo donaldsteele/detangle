@@ -79,6 +79,17 @@ public class ReleaseWorkflowTests
     }
 
     [Fact]
+    public void TheLintToolRidesInThePortableArchive()
+    {
+        string workflow = Workflow();
+
+        // It goes in the archive rather than the installers on purpose: the installers are
+        // for the reader, and this is for the pipeline (plan.md section 15.5).
+        Assert.Contains("Publish detangle-lint", workflow, StringComparison.Ordinal);
+        Assert.Contains("detangle-lint.exe publish/", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ChecksumsArePublishedWithTheRelease()
     {
         Assert.Contains("sha256sum", Workflow(), StringComparison.Ordinal);

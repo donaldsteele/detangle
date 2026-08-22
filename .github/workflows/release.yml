@@ -241,6 +241,23 @@ jobs:
             --outputDir artifacts \
             $signing
 
+      # --- The lint CLI ----------------------------------------------------------------
+
+      # Trimmed but not self-contained-single-file like the app: this is a tool people put
+      # in CI, where the runner already has a .NET runtime more often than not, and where
+      # a 70 MB binary per job is a real cost. It rides in the portable archive rather
+      # than in the installers, which are for the reader rather than the pipeline.
+      - name: Publish detangle-lint
+        shell: bash
+        run: >
+          dotnet publish src/Detangle.Lint/Detangle.Lint.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:Version=${{ needs.version.outputs.version }}
+          --output publish/${{ matrix.rid }}-lint
+
       # --- Portable archive ----------------------------------------------------------
 
       - name: Archive the portable build
@@ -249,9 +266,11 @@ jobs:
           mkdir -p artifacts
 
           if [ "${{ runner.os }}" = "Windows" ]; then
+            cp publish/${{ matrix.rid }}-lint/detangle-lint.exe publish/${{ matrix.rid }}/
             7z a -tzip "artifacts/detangle-${{ needs.version.outputs.version }}-${{ matrix.rid }}.zip" \
               "./publish/${{ matrix.rid }}/*"
           else
+            cp publish/${{ matrix.rid }}-lint/detangle-lint publish/${{ matrix.rid }}/
             tar -czf "artifacts/detangle-${{ needs.version.outputs.version }}-${{ matrix.rid }}.tar.gz" \
               -C "publish/${{ matrix.rid }}" .
           fi

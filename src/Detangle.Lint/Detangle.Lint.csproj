@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A console head of its own rather than a flag on the desktop binary. Detangle.Desktop
+    is OutputType=WinExe and already claims the name "detangle", so anything it wrote to
+    Console.Error on Windows would go nowhere - which is not a useful property for a tool
+    whose entire output is a report. See plan.md section 15.5.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Detangle.Lint</RootNamespace>
+    <AssemblyName>detangle-lint</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!--
+      Trimmable, not AOT. Core drags YamlDotNet and Microsoft.Data.Sqlite for code paths
+      lint never touches, and the desktop head already documents having to root YamlDotNet
+      whole; promising AOT here would fail the first publish.
+    -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <ILLinkTreatWarningsAsErrors>false</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Detangle.Core\Detangle.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Detangle.Core\Detangle.Core.csproj" />
+    <ProjectReference Include="..\..\src\Detangle.Lint\Detangle.Lint.csproj" />
   </ItemGroup>
 
 </Project>

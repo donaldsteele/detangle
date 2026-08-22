@@ -754,6 +754,17 @@ paths lint never touches, and `Detangle.Desktop.csproj:36` already documents hav
 app, not AOT, or the first `dotnet publish` fails. Resist scope creep toward export and graph
 dump in v1.
 
+**Shipped** as `src/Detangle.Lint`, a real console head named `detangle-lint`, because
+`Detangle.Desktop` is `OutputType=WinExe` and anything it wrote to `Console.Error` on
+Windows would go nowhere. `FindingsReport` lives in Core so the browser head can produce
+the identical document, and writes through `Utf8JsonWriter` with the relaxed encoder — no
+`JsonText` move was needed, and the strict encoder's `\uXXXX` escaping turns a readable
+report into noise for no benefit in a file. `--fail-on` takes `error` (default), `warning`,
+`info` or `never`; the default alone would never notice the interesting findings, since
+`BrokenLink` is the only `Error`. Every finding is suggested, unlike in the panel, because
+a report has no reader who will open one later. It rides in the portable archive rather
+than the installers: those are for the reader, this is for the pipeline.
+
 ### 15.6 Considered and deliberately left out
 
 - **Hint mode** (two-letter tags on every link, Vimium-style). The differentiation claim is
