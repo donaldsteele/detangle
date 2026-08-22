@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Detangle.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Detangle.Core\Detangle.Core.csproj" />
     <ProjectReference Include="..\Detangle.Rendering\Detangle.Rendering.csproj" />
   </ItemGroup>

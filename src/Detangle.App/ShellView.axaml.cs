@@ -55,8 +55,8 @@ public partial class ShellView : UserControl
         OutlineList.SelectionChanged += OnOutlineSelectionChanged;
         BacklinkList.SelectionChanged += OnBacklinkSelectionChanged;
         MentionList.SelectionChanged += OnMentionSelectionChanged;
-        PaletteList.SelectionChanged += OnPaletteSelectionChanged;
-        SearchList.SelectionChanged += OnSearchSelectionChanged;
+        ListKeyboard.Wire(PaletteBox, PaletteList, CommitPalette);
+        ListKeyboard.Wire(SearchBox, SearchList, CommitSearch);
         FindingList.SelectionChanged += OnFindingSelectionChanged;
         FixAllButton.Click += OnFixAllClick;
         _graph = CreateGraphCanvas(isDark: ActualThemeVariant == ThemeVariant.Dark);
@@ -579,7 +579,7 @@ public partial class ShellView : UserControl
         }
     }
 
-    private void OnPaletteSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void CommitPalette()
     {
         if (PaletteList.SelectedItem is PaletteEntry entry)
         {
@@ -588,7 +588,7 @@ public partial class ShellView : UserControl
         }
     }
 
-    private void OnSearchSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void CommitSearch()
     {
         if (SearchList.SelectedItem is Detangle.Core.Search.SearchHit hit)
         {
