@@ -1,0 +1,5 @@
+[
+  {"do":"wait","ms":6000},
+  {"do":"click","x":562,"y":512,"settle":1200},
+  {"do":"shot","name":"settle","clip":[340,478,610,275]}
+]

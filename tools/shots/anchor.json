@@ -1,0 +1,8 @@
+[
+  {"do":"wait","ms":6000},
+  {"do":"click","x":25,"y":158,"settle":900},
+  {"do":"click","x":64,"y":256,"settle":700},
+  {"do":"click","x":180,"y":292,"settle":1200},
+  {"do":"move","x":900,"y":700,"settle":500},
+  {"do":"shot","name":"anchor","clip":[0,88,470,720]}
+]
