@@ -684,80 +684,150 @@
     <div class="section-head">
       <span class="label">Download</span>
       <h2>Point it at a folder.</h2>
-      <p>Version <span id="version">0.2.0</span>. Free, MIT, and the same build on every platform.</p>
+      <p>
+        Version <span id="version">0.2.0</span>, free and MIT. A release carries
+        forty-three files; nine of them are for a person, and the rest is the update feed.
+        These are the nine. Every build is 17&ndash;31&nbsp;MB because the runtime is
+        inside it &mdash; there is nothing to install first.
+      </p>
     </div>
 
-    <div class="os-panels" id="os-panels">
-      <div class="tabs" role="tablist">
-        <button class="tab" type="button" role="tab" data-os="macos" aria-selected="true">macOS</button>
-        <button class="tab" type="button" role="tab" data-os="linux" aria-selected="false">Linux</button>
-        <button class="tab" type="button" role="tab" data-os="windows" aria-selected="false">Windows</button>
-      </div>
+    <!--
+      The recommendation is progressive. Without JavaScript this card reads as a prompt and
+      all three platforms are listed below it exactly as they are; site.js only fills in
+      which one the visitor is on. Getting the guess wrong has to cost nothing, so it never
+      hides the alternatives.
+    -->
+    <div class="pick" id="pick">
+      <p class="pick-lead">Pick your platform below.</p>
+      <p class="pick-note">
+        Not sure which file? Each one says what it is for.
+      </p>
+    </div>
 
-      <div class="os active" data-os="macos">
-        <h3>macOS</h3>
-        <p class="step">
-          Download <code>Detangle-osx-arm64.dmg</code> for Apple Silicon, or
-          <code>Detangle-osx-x64.dmg</code> for Intel, from
-          <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>.
-          Open it and drag Detangle to Applications.
-        </p>
-        <p class="step">
-          The build is not notarized, so the first launch needs one extra step: right-click
-          the app and choose Open, then confirm. Or clear the quarantine flag yourself:
+    <div class="dl-grid">
+      <article class="dl" data-os="macos">
+        <h3><svg class="os-icon" aria-hidden="true"><use href="#i-macos" /></svg> macOS</h3>
+        <ul>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-osx-arm64-Setup.pkg"><code>Detangle-osx-arm64-Setup.pkg</code></a>
+          <p class="dl-when">Apple Silicon &mdash; every Mac since 2020. Start here.</p>
+        </li>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-osx-x64-Setup.pkg"><code>Detangle-osx-x64-Setup.pkg</code></a>
+          <p class="dl-when">Intel Macs. Apple menu &rarr; About This Mac will say which you have.</p>
+        </li>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-osx-arm64-Portable.zip"><code>Detangle-osx-arm64-Portable.zip</code></a>
+          <p class="dl-when">No installer: unzip it and run it. Nothing is written outside the folder.</p>
+        </li>
+        </ul>
+        <p class="dl-caveat">
+          Not notarized, so the first launch needs a right-click &rarr; Open, or:
         </p>
         <div class="command">
           <span class="prompt">$ </span><span data-command>xattr -dr com.apple.quarantine /Applications/Detangle.app</span>
           <button type="button" data-copy-command>Copy</button>
         </div>
-      </div>
+      </article>
 
-      <div class="os" data-os="linux">
-        <h3>Linux</h3>
-        <p class="step">
-          Download the AppImage from
-          <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>,
-          make it executable, and run it. Nothing is installed.
+      <article class="dl" data-os="windows">
+        <h3><svg class="os-icon" aria-hidden="true"><use href="#i-windows" /></svg> Windows</h3>
+        <ul>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-win-x64-Setup.exe"><code>Detangle-win-x64-Setup.exe</code></a>
+          <p class="dl-when">Intel or AMD, which is almost every PC. Start here.</p>
+        </li>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-win-arm64-Setup.exe"><code>Detangle-win-arm64-Setup.exe</code></a>
+          <p class="dl-when">ARM machines &mdash; Surface Pro X, Snapdragon laptops.</p>
+        </li>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-win-x64-Portable.zip"><code>Detangle-win-x64-Portable.zip</code></a>
+          <p class="dl-when">No installer, no uninstaller, no Start menu entry.</p>
+        </li>
+        </ul>
+        <p class="dl-caveat">
+          Not signed with a paid certificate, so SmartScreen warns once: choose
+          <strong>More info</strong>, then <strong>Run anyway</strong>.
         </p>
-        <div class="command">
-          <span class="prompt">$ </span><span data-command>chmod +x Detangle-linux-x64.AppImage &amp;&amp; ./Detangle-linux-x64.AppImage</span>
-          <button type="button" data-copy-command>Copy</button>
-        </div>
-        <p class="step">Or install the <code>.deb</code>, which adds a desktop entry:</p>
-        <div class="command">
-          <span class="prompt">$ </span><span data-command>sudo apt install ./detangle_0.2.0_amd64.deb</span>
-          <button type="button" data-copy-command>Copy</button>
-        </div>
-        <p>
-          x64 and arm64 both build. The optional WebView diagram backend wants
-          <code>libwebkit2gtk-4.1-0</code>; nothing else does.
-        </p>
-      </div>
+      </article>
 
-      <div class="os" data-os="windows">
-        <h3>Windows</h3>
-        <p class="step">
-          Download <code>Detangle-win-x64.exe</code> from
-          <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>
-          and run it. There is also a portable zip, which is where
-          <code>detangle-lint</code> lives.
+      <article class="dl" data-os="linux">
+        <h3><svg class="os-icon" aria-hidden="true"><use href="#i-linux" /></svg> Linux</h3>
+        <ul>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/Detangle-linux-x64.AppImage"><code>Detangle-linux-x64.AppImage</code></a>
+          <p class="dl-when">Any distribution. Make it executable and run it; nothing is installed.</p>
+        </li>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/detangle_0.2.0_amd64.deb"><code>detangle_<span class="v">0.2.0</span>_amd64.deb</code></a>
+          <p class="dl-when">Debian and Ubuntu, with a desktop entry. <code>arm64</code> is published too.</p>
+        </li>
+        <li>
+          <a class="dl-file" href="https://github.com/donaldsteele/detangle/releases/latest/download/detangle-0.2.0-linux-x64.tar.gz"><code>detangle-<span class="v">0.2.0</span>-linux-x64.tar.gz</code></a>
+          <p class="dl-when">The application and <code>detangle-lint</code> together, for CI.</p>
+        </li>
+        </ul>
+        <p class="dl-caveat">
+          The optional WebView diagram backend wants <code>libwebkit2gtk-4.1-0</code>.
+          Nothing else does, which is why it is a recommendation and not a dependency.
         </p>
-        <p class="step">
-          The build is not signed with a paid certificate, so SmartScreen will warn you the
-          first time. Choose <strong>More info</strong>, then <strong>Run anyway</strong>.
-        </p>
-      </div>
+      </article>
     </div>
 
+    <!--
+      Naming the files that are not for you is the point of this block: a release page
+      with forty-three assets on it is the reason somebody downloads the wrong one.
+    -->
+    <details class="dl-rest">
+      <summary>The other thirty-four files</summary>
+      <p>
+        <code>RELEASES-*</code>, <code>assets.*.json</code>, <code>releases.*.json</code>
+        and <code>*-full.nupkg</code> are the update feed. The application reads them to
+        find its next version; you never download one. <code>SHA256SUMS</code> is the
+        checksum list for everything above, so you can check that what you downloaded is
+        what was built.
+      </p>
+      <p>
+        <code>detangle-<span class="v">0.2.0</span>-win-x64.zip</code> and its siblings are
+        not the same as <code>Detangle-win-x64-Portable.zip</code>: the lower-case archive
+        carries <code>detangle-lint</code> beside the application, and the other is the
+        reader on its own.
+      </p>
+    </details>
+
     <p class="micro">
-      Every release ships <code>SHA256SUMS</code>, so you can check what you downloaded is
-      what was built. Signing certificates cost money this project does not take, which is
-      the whole reason for the warnings above — the code is
+      Signing certificates cost money this project does not take, which is the whole reason
+      for the two warnings above &mdash; the code is
       <a href="https://github.com/donaldsteele/detangle">right here</a> if you would rather
       build it: <code>dotnet publish src/Detangle.Desktop</code> and nothing else.
     </p>
   </div>
 </section>
+
+<!--
+  Three marks, drawn here rather than fetched: the site's CSP allows no third-party
+  requests, and a download page whose icons come from a CDN would be the one thing on it
+  that phones home. They are generic category shapes, not anybody's trademark.
+-->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-macos" viewBox="0 0 24 24">
+    <path d="M12.2 7.4c-1.1 0-2 .6-2.7.6-.7 0-1.7-.6-2.8-.5C5.1 7.6 3.6 8.8 3.6 11c0 1.5.5 3.1 1.3 4.2.6 1 1.2 1.8 2 1.8s1.1-.6 2.1-.6 1.3.6 2.1.6 1.4-.9 2-1.8c.5-.8.7-1.5.9-2.1-1.9-.8-2.2-3.4-.3-4.6-.5-.7-1.4-1.1-1.5-1.1z" />
+    <path d="M13.6 3.4c-.6.7-1.6 1.2-2.5 1.1-.1-1 .4-2 .9-2.6.6-.7 1.6-1.2 2.5-1.2.1 1-.3 2-.9 2.7z" />
+  </symbol>
+  <symbol id="i-windows" viewBox="0 0 24 24">
+    <path d="M3 5.8 10.5 4.7v7.1H3zM11.6 4.5 21 3.2v8.6h-9.4zM3 12.9h7.5V20L3 18.9zM11.6 12.9H21v8.6l-9.4-1.3z" />
+  </symbol>
+  <symbol id="i-linux" viewBox="0 0 24 24">
+    <path d="M12 2.2c-2.6 0-4.3 2-4.3 4.6 0 1 .1 1.7-.3 2.5-.6 1.3-1.9 2.7-2.5 4.4-.4 1.1-.3 2 .1 2.5.3.3.7.4 1.1.3.2.8.6 1.5 1.2 2.1 1.2 1.2 2.9 1.7 4.7 1.7s3.5-.5 4.7-1.7c.6-.6 1-1.3 1.2-2.1.4.1.8 0 1.1-.3.4-.5.5-1.4.1-2.5-.6-1.7-1.9-3.1-2.5-4.4-.4-.8-.3-1.5-.3-2.5 0-2.6-1.7-4.6-4.3-4.6z" />
+    <ellipse cx="12" cy="14.6" rx="3.1" ry="4.1" class="belly" />
+    <circle cx="10.4" cy="6.4" r=".95" class="eye" />
+    <circle cx="13.6" cy="6.4" r=".95" class="eye" />
+    <path d="M12 7.6c.9 0 1.7.55 1.7 1.05S12.9 9.7 12 9.7s-1.7-.55-1.7-1.05S11.1 7.6 12 7.6z" class="beak" />
+    <path d="M9.4 19.9c-.5.6-1.5.9-2.3.8.1-.8.9-1.5 1.7-1.7zM14.6 19.9c.5.6 1.5.9 2.3.8-.1-.8-.9-1.5-1.7-1.7z" class="beak" />
+  </symbol>
+</svg>
 
 </main>
 

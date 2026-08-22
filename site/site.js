@@ -93,37 +93,156 @@
 
   // --- OS panels become tabs, but only once this runs ----------------------
 
-  var panels = document.getElementById("os-panels");
+  // --- which file to download ----------------------------------------------
+  // A release carries forty-three files. Guessing which one a visitor wants is worth
+  // doing and not worth trusting: this fills in a recommendation and highlights one card,
+  // and never hides the other two. Getting it wrong has to cost a glance, not a download.
 
-  if (panels) {
-    panels.classList.add("js-tabs");
+  var pick = document.getElementById("pick");
 
-    var tabs = panels.querySelectorAll(".tab");
-    var sections = panels.querySelectorAll(".os");
+  function architecture() {
+    // Only Chromium tells the truth here, and only asynchronously. Everything else gets
+    // the honest answer, which is "probably the common one" — said out loud below rather
+    // than hidden behind a confident-looking button.
+    var data = navigator.userAgentData;
 
-    // Preselect the platform the visitor is on. Getting this wrong costs one click;
-    // hiding the other two behind a menu would cost more.
-    var platform = navigator.platform || "";
-    var guess = /Mac/i.test(platform) ? "macos" : /Win/i.test(platform) ? "windows" : /Linux/i.test(platform) ? "linux" : null;
-
-    function select(os) {
-      tabs.forEach(function (tab) {
-        tab.setAttribute("aria-selected", String(tab.getAttribute("data-os") === os));
-      });
-
-      sections.forEach(function (section) {
-        section.classList.toggle("active", section.getAttribute("data-os") === os);
+    if (data && data.getHighEntropyValues) {
+      return data.getHighEntropyValues(["architecture"]).then(function (values) {
+        return /arm/i.test(values.architecture || "") ? "arm64" : "x64";
+      }).catch(function () {
+        return null;
       });
     }
 
-    tabs.forEach(function (tab) {
-      tab.addEventListener("click", function () {
-        select(tab.getAttribute("data-os"));
-      });
-    });
+    return Promise.resolve(null);
+  }
 
-    if (guess) {
-      select(guess);
+  function platform() {
+    var data = navigator.userAgentData;
+    var name = (data && data.platform) || navigator.platform || "";
+    var agent = navigator.userAgent || "";
+
+    // An iPad reports itself as a Mac and cannot run any of these, so it is worth telling
+    // apart rather than handing a .pkg to somebody who has no way to open it.
+    if (/iPhone|iPad|iPod/i.test(agent) || (/Mac/i.test(name) && navigator.maxTouchPoints > 2)) {
+      return "ios";
+    }
+
+    if (/Android/i.test(agent)) {
+      return "android";
+    }
+
+    if (/Mac|Darwin/i.test(name)) {
+      return "macos";
+    }
+
+    if (/Win/i.test(name)) {
+      return "windows";
+    }
+
+    if (/Linux|X11|CrOS/i.test(name)) {
+      return "linux";
+    }
+
+    return null;
+  }
+
+  // What each platform's obvious first download is, and what to say about the choice of
+  // architecture when the browser would not say.
+  var RECOMMENDED = {
+    macos: {
+      label: "macOS",
+      file: function (arch) {
+        return arch === "x64"
+          ? "Detangle-osx-x64-Setup.pkg"
+          : "Detangle-osx-arm64-Setup.pkg";
+      },
+      unsure: "Assuming Apple Silicon, which is every Mac since 2020. On an Intel Mac take the x64 installer below."
+    },
+    windows: {
+      label: "Windows",
+      file: function (arch) {
+        return arch === "arm64"
+          ? "Detangle-win-arm64-Setup.exe"
+          : "Detangle-win-x64-Setup.exe";
+      },
+      unsure: "Assuming Intel or AMD. On an ARM machine take the arm64 installer below."
+    },
+    linux: {
+      label: "Linux",
+      file: function (arch) {
+        return arch === "arm64"
+          ? "Detangle-linux-arm64.AppImage"
+          : "Detangle-linux-x64.AppImage";
+      },
+      unsure: "Assuming x86-64. On ARM take the arm64 AppImage below."
+    }
+  };
+
+  function element(tag, className, text) {
+    var node = document.createElement(tag);
+
+    if (className) {
+      node.className = className;
+    }
+
+    if (text) {
+      node.textContent = text;
+    }
+
+    return node;
+  }
+
+  function recommend(os, arch) {
+    var entry = RECOMMENDED[os];
+
+    if (!pick || !entry) {
+      return;
+    }
+
+    var file = entry.file(arch);
+    var card = document.querySelector('.dl[data-os="' + os + '"]');
+
+    if (card) {
+      card.classList.add("mine");
+    }
+
+    var lead = pick.querySelector(".pick-lead");
+    var note = pick.querySelector(".pick-note");
+
+    lead.textContent = "You look like you are on " + entry.label + ".";
+
+    var row = element("div", "pick-row");
+    var button = element("a", "button primary", "Download for " + entry.label);
+
+    button.href =
+      "https://github.com/donaldsteele/detangle/releases/latest/download/" + file;
+
+    row.appendChild(button);
+    row.appendChild(element("span", "pick-file", file));
+
+    pick.insertBefore(row, note);
+    pick.classList.add("found");
+
+    note.textContent = arch
+      ? "Everything else is below, including the portable build."
+      : entry.unsure;
+  }
+
+  if (pick) {
+    var os = platform();
+
+    if (os === "ios" || os === "android") {
+      // There is no build for these and there is not going to be one, so say so and point
+      // at the thing that does work in a phone browser.
+      pick.querySelector(".pick-lead").textContent =
+        "Detangle is a desktop application.";
+      pick.querySelector(".pick-note").innerHTML =
+        'There is no mobile build. The <a href="#demo">browser demo</a> runs the same reader in this tab.';
+    } else if (os) {
+      architecture().then(function (arch) {
+        recommend(os, arch);
+      });
     }
   }
 

@@ -811,87 +811,170 @@ h2 {
   font-size: 14px;
 }
 
-/* --- download panels ------------------------------------------------------- */
+/* --- download ---------------------------------------------------------------
+   A release carries forty-three files and nine of them are for a person, which is the
+   whole reason somebody downloads the wrong one. So this lists the nine with a sentence
+   each, names the rest as "not for you", and recommends one — without ever hiding the
+   others, because a wrong guess must cost nothing.
+   -------------------------------------------------------------------------- */
 
-.os-panels {
-  border: 1px solid var(--border);
+.sprite {
+  display: none;
+}
+
+.os-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  vertical-align: -3px;
+  margin-right: 8px;
+}
+
+/* The penguin reads as a silhouette; two features are punched back out of it. */
+.os-icon .eye {
+  fill: var(--panel);
+}
+
+.os-icon .beak {
+  fill: var(--accent);
+}
+
+.os-icon .belly {
+  fill: var(--panel);
+}
+
+.pick {
+  margin: 30px 0 26px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  overflow: hidden;
   background: var(--panel);
 }
 
-.os {
-  border-top: 1px solid var(--border);
-  padding: 22px;
-}
-
-.os:first-of-type {
-  border-top: none;
-}
-
-.os h3 {
-  margin: 0 0 12px;
+.pick-lead {
+  margin: 0;
   font-size: 16px;
-  font-weight: 630;
+  font-weight: 600;
+  color: var(--text);
 }
 
-.os p {
-  margin: 10px 0 0;
+.pick-note {
+  margin: 6px 0 0;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+/* Filled in by site.js once the platform is known; absent otherwise. */
+.pick.found .pick-lead {
+  margin-bottom: 14px;
+}
+
+.pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.pick .button {
+  margin: 0;
+}
+
+.pick-file {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--faint);
+  word-break: break-all;
+}
+
+.dl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 22px;
+}
+
+.dl {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+/* The platform the visitor is on, once it is known. */
+.dl.mine {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--glow);
+}
+
+.dl h3 {
+  display: flex;
+  align-items: center;
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 640;
+}
+
+.dl ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.dl li {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dl li:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.dl-file {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.dl-file:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
+.dl-file code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.dl-when {
+  margin: 5px 0 0;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.dl-note {
+  margin: 3px 0 0;
   color: var(--faint);
   font-size: 13px;
 }
 
-/* A step is instruction rather than footnote, so it reads at body colour. */
-.os p.step {
-  color: var(--dim);
-  font-size: 14px;
+.dl-caveat {
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 13px;
 }
 
-.os .command + .step {
-  margin-top: 16px;
-}
-
-.tabs {
-  display: none;
-  gap: 4px;
-  padding: 10px 10px 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--elevated);
-}
-
-/* Tabs exist only when the script runs; with JS off the panels stack and all of
-   them stay readable, which is the point of building it this way round. */
-.js-tabs .tabs {
-  display: flex;
-}
-
-.js-tabs .os {
-  display: none;
-  border-top: none;
-}
-
-.js-tabs .os.active {
-  display: block;
-}
-
-.tab {
-  border: 1px solid transparent;
-  border-bottom: none;
-  background: transparent;
-  color: var(--dim);
-  padding: 8px 14px;
-  border-radius: 8px 8px 0 0;
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.tab[aria-selected="true"] {
-  background: var(--panel);
-  border-color: var(--border);
-  color: var(--text);
-}
-
+/* Shared with the download cards' one shell command. */
 .command {
   display: flex;
   align-items: center;
@@ -925,6 +1008,36 @@ h2 {
 .command button:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+.dl .command {
+  margin-top: 10px;
+}
+
+.dl-rest {
+  margin-top: 26px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.dl-rest summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 560;
+}
+
+.dl-rest p {
+  margin: 12px 0 0;
+}
+
+.dl-rest code,
+.dl-when code,
+.dl-caveat code {
+  font-size: 12.5px;
 }
 
 /* --- docs grid ------------------------------------------------------------- */

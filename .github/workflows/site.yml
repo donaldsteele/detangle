@@ -77,8 +77,39 @@ jobs:
             exit 0
           fi
 
-          sed -i "s|<span id=\"version\">[^<]*</span>|<span id=\"version\">${version}</span>|" public/index.html
-          sed -i "s|detangle_[0-9][0-9.]*_amd64.deb|detangle_${version}_amd64.deb|" public/index.html
+          python3 - "$version" <<'PYTHON'
+          import re, sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+          page = Path("public/index.html")
+          text = page.read_text(encoding="utf-8")
+
+          # The badge, the version shown inside a filename, and the version inside a
+          # release URL. Three narrow rewrites rather than one broad one: a bare search
+          # for "0.2.0" would also find it in prose, where it is usually wrong to change.
+          text = re.sub(
+              r'(<span id="version">)[^<]*(</span>)',
+              lambda m: m.group(1) + version + m.group(2),
+              text)
+
+          text = re.sub(
+              r'(<span class="v">)[^<]*(</span>)',
+              lambda m: m.group(1) + version + m.group(2),
+              text)
+
+          text = re.sub(
+              r'(<a class="ver" href="changelog.html">)[^<]*(</a>)',
+              lambda m: m.group(1) + version + m.group(2),
+              text)
+
+          text = re.sub(
+              r'(?<=/releases/latest/download/)([A-Za-z._-]*?)\d+\.\d+\.\d+',
+              lambda m: m.group(1) + version,
+              text)
+
+          page.write_text(text, encoding="utf-8")
+          PYTHON
 
           echo "baked version ${version}"
 
