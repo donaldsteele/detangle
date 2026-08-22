@@ -202,6 +202,50 @@ public class LinkDoctorTests
     }
 
     [Fact]
+    public void TwoLinksToTheSamePlaceOnOneLineAreRewrittenSeparately()
+    {
+        // A generator writes this shape constantly, and both findings used to land on the
+        // first link: it was rewritten twice and the second was never touched, while
+        // "fix all safe" reported two successes.
+        const string Content = "See [[My Target]] and again [[My Target]].\n";
+
+        IReadOnlyList<Finding> findings = Examine(
+            ("page.md", Content), ("notes/my-target.md", "# My Target"));
+
+        List<Finding> links =
+            [.. findings.Where(f => f.Kind == FindingKind.NonCanonicalLink)];
+
+        Assert.Equal(2, links.Count);
+
+        string? second = LinkDoctor.ApplyRewrite(Content, links[1]);
+
+        Assert.Equal("See [[My Target]] and again [[notes/my-target]].\n", second);
+
+        // And applying both, in either order, leaves no original behind.
+        string? both = LinkDoctor.ApplyRewrite(LinkDoctor.ApplyRewrite(Content, links[1])!, links[0]);
+
+        Assert.Equal("See [[notes/my-target]] and again [[notes/my-target]].\n", both);
+    }
+
+    [Fact]
+    public void ALabelThatRepeatsItsOwnDestinationIsNotMistakenForIt()
+    {
+        // "[My_Target](My_Target)" — a shape generators write constantly. Searching the
+        // line for the target text finds the label first and rewrites that, leaving a
+        // link whose destination is untouched and whose visible text has become a path.
+        const string Content = "See [My_Target](My_Target) here.\n";
+
+        IReadOnlyList<Finding> findings = Examine(
+            ("page.md", Content), ("notes/my-target.md", "# My Target"));
+
+        Finding finding = Assert.Single(findings, f => f.Kind == FindingKind.NonCanonicalLink);
+        string? rewritten = LinkDoctor.ApplyRewrite(Content, finding);
+
+        Assert.NotNull(rewritten);
+        Assert.StartsWith("See [My_Target](notes/", rewritten, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ARewriteThatNoLongerMatchesIsRefused()
     {
         IReadOnlyList<Finding> findings = Examine(

@@ -382,7 +382,7 @@ public static class LinkDoctor
         string original = resolution.Link.RawTarget;
         string line = lines[index];
 
-        int position = line.IndexOf(original, StringComparison.Ordinal);
+        int position = TargetPosition(line, resolution.Link);
 
         if (position < 0)
         {
@@ -393,6 +393,57 @@ public static class LinkDoctor
             line.AsSpan(0, position), replacement, line.AsSpan(position + original.Length));
 
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Where on the line this link's destination actually starts, or -1 when it is not
+    /// where the link says it is.
+    /// <para>
+    /// Searching the line for the target text alone gets this wrong twice. Two links to
+    /// the same place on one line both find the first one, so one is rewritten twice and
+    /// the other never; and a label that repeats its own destination -
+    /// <c>[spec](spec)</c>, which is what a generator writes constantly - is found before
+    /// the destination is. Both are avoided by starting from the column the parser
+    /// recorded and stepping over the syntax that introduces the destination, rather than
+    /// by hunting for the text.
+    /// </para>
+    /// </summary>
+    private static int TargetPosition(string line, LinkReference link)
+    {
+        if (link.RawTarget.Length == 0)
+        {
+            // A self-reference ("[[#Heading]]") has no destination to replace, and
+            // IndexOf("") would answer 0 and splice the rewrite at the start of the line.
+            return -1;
+        }
+
+        int from = Math.Clamp(link.Column, 0, line.Length);
+
+        int opening = link.Syntax switch
+        {
+            // Column is the "[" of "[label](target)"; the destination follows the "](".
+            LinkSyntax.Markdown => Step(line.IndexOf("](", from, StringComparison.Ordinal), 2),
+
+            // Column is the first "[" of "[[target|alias]]" or "![[...]]"; the target is
+            // first inside the brackets, ahead of any "|" or "#".
+            LinkSyntax.WikiLink => Step(line.IndexOf("[[", from, StringComparison.Ordinal), 2),
+
+            // Frontmatter values, tags and block references have no bracketed destination
+            // to step over, so the recorded column is the best start there is.
+            _ => line.IndexOf(link.RawTarget, from, StringComparison.Ordinal),
+        };
+
+        // The bracketed forms must match exactly where the syntax puts them. Anything
+        // else - an angle-bracketed or percent-encoded destination that no longer reads
+        // back as the parsed target, a line edited since the finding was made - is the
+        // "not where expected" case this method already refuses.
+        return opening >= 0
+            && opening + link.RawTarget.Length <= line.Length
+            && line.AsSpan(opening, link.RawTarget.Length).SequenceEqual(link.RawTarget)
+                ? opening
+                : -1;
+
+        static int Step(int found, int over) => found < 0 ? -1 : found + over;
     }
 
     /// <summary>
