@@ -82,6 +82,35 @@ jobs:
 
           echo "baked version ${version}"
 
+      - name: Write the changelog from the releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The page has carried a comment promising this since it was written, and
+          # nothing did it: the changelog went on saying "nothing is tagged yet" through
+          # two releases. Built here rather than fetched in the browser for the same
+          # reason as the version badge - the site's CSP forbids connect-src.
+          python3 - <<'PYTHON' > releases.json
+          import json, subprocess
+
+          listed = json.loads(subprocess.run(
+              ["gh", "release", "list", "--json", "tagName,name,publishedAt", "--limit", "25"],
+              capture_output=True, text=True, check=True).stdout)
+
+          releases = []
+
+          for release in listed:
+              body = subprocess.run(
+                  ["gh", "release", "view", release["tagName"], "--json", "body", "--jq", ".body"],
+                  capture_output=True, text=True, check=True).stdout
+
+              releases.append({**release, "body": body})
+
+          print(json.dumps(releases))
+          PYTHON
+
+          python3 tools/changelog.py releases.json public/changelog.html
+
       - name: Check the demo actually got built
         run: |
           # A deploy that quietly ships an empty iframe is worse than a failed build.

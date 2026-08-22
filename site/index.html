@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Detangle — the wiki reader that untangles your links</title>
-<meta name="description" content="A markdown wiki viewer that resolves the links your generator got wrong. Mermaid, DBML, backlinks and a graph — offline, from any folder. macOS, Windows, Linux. MIT." />
+<meta name="description" content="A markdown wiki viewer that resolves the links your generator got wrong, says which rule it used, and tells you when a link that still works has started working worse. Offline, from any folder. macOS, Windows, Linux. MIT." />
 <link rel="canonical" href="https://detangle.dev/" />
 <meta property="og:title" content="Detangle — read the wiki the model actually wrote" />
 <meta property="og:description" content="An LLM writes [[Attention Is All You Need]]; the file is attention-is-all-you-need.md. Detangle resolves it, tells you which rule it used, and lists every link it couldn't." />
@@ -29,8 +29,8 @@
     <nav>
       <a href="#links">Links</a>
       <a href="#diagrams">Diagrams</a>
-      <a href="#formats">Formats</a>
       <a href="#graph">Graph</a>
+      <a href="#doctor">Doctor</a>
       <a class="persist" href="#demo">Demo</a>
       <a class="persist" href="docs/">Docs</a>
       <a class="persist" href="changelog.html">Changelog</a>
@@ -39,6 +39,26 @@
     </nav>
   </div>
 </header>
+
+<!--
+  What is new, delivered as navigation rather than as an announcement. Naming five things
+  precisely and letting the reader count them does more than any adjective would.
+-->
+<div class="release-rail">
+  <div class="wrap">
+    <a class="ver" href="changelog.html">0.2.0</a>
+    <span class="sep">&mdash;</span>
+    <a href="#doctor">Anchor Doctor</a>
+    <span class="sep">&middot;</span>
+    <a href="#doctor">Settle</a>
+    <span class="sep">&middot;</span>
+    <a href="#doctor">Triage deck</a>
+    <span class="sep">&middot;</span>
+    <a href="#change">Regeneration diff</a>
+    <span class="sep">&middot;</span>
+    <a href="#lint">detangle-lint</a>
+  </div>
+</div>
 
 <main>
 
@@ -88,8 +108,9 @@
       <h2>Your links don't have to be perfect.</h2>
       <p>
         Every other viewer matches link text against filenames and shows you a dead link
-        when they differ. Detangle tries thirteen rules in order, stops at the first that
-        matches, and tells you which one fired.
+        when they differ. Detangle tries fourteen rules in order, stops at the first that
+        matches, and tells you which one fired. Thirteen of them are the machine guessing
+        at your wiki. You write the fourteenth.
       </p>
     </div>
 
@@ -111,7 +132,8 @@
 <span class="rule heuristic">10</span> encoding variant          <span class="dst">%20, NFC vs NFD</span>
 <span class="rule heuristic">11</span> extension probe           <span class="dst">![[diagram]]</span>
 <span class="rule ambiguous">12</span> nearest name              <span class="dst">suggested, never followed</span>
-<span class="rule unresolved">13</span> placeholder               <span class="dst">reported, not hidden</span></pre>
+<span class="rule unresolved">13</span> placeholder               <span class="dst">reported, not hidden</span>
+<span class="rule settled">14</span> remembered choice         <span class="dst">you settled this one</span></pre>
       </div>
 
       <ul class="points">
@@ -148,25 +170,6 @@
         </li>
       </ul>
     </div>
-        <figure class="shot inset">
-        <div class="window">
-          <div class="chrome">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="title">link doctor — every problem, in one list</span>
-          </div>
-          <img src="images/doctor.png" width="1256" height="808" loading="lazy"
-               alt="Detangle's Link Doctor panel listing broken links, ambiguous names and duplicate slugs" />
-        </div>
-        <figcaption>
-          <span class="reading-label">Link Doctor</span>
-          <span class="reading-line">Every problem in the demo wiki, with the file and the reason.</span>
-          <span class="readings">
-            <span class="reading">12 files</span>
-            <span class="reading unresolved">4 broken</span>
-            <span class="reading ambiguous">2 ambiguous</span>
-          </span>
-        </figcaption>
-      </figure>
 </div>
 </section>
 
@@ -205,27 +208,7 @@
         </p>
       </div>
     </div>
-        <div class="shots">
-      <figure class="shot inset">
-        <div class="window">
-          <div class="chrome">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="title">concepts/self-attention.md</span>
-          </div>
-          <img src="images/mermaid.png" width="1256" height="808" loading="lazy"
-               alt="A Mermaid flowchart rendered inside Detangle" />
-        </div>
-        <figcaption>
-          <span class="reading-label">Mermaid</span>
-          <span class="reading-line">Drawn in process. No browser, no Node, no network call.</span>
-          <span class="readings">
-            <span class="reading">3 links</span>
-            <span class="reading unresolved">1 broken</span>
-            <span class="reading exact">8 backlinks</span>
-          </span>
-        </figcaption>
-      </figure>
-      <figure class="shot inset">
+        <figure class="shot inset">
         <div class="window">
           <div class="chrome">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -244,7 +227,6 @@
           </span>
         </figcaption>
       </figure>
-      </div>
 </div>
 </section>
 
@@ -288,8 +270,7 @@
       </p>
     </div>
 
-    <div class="split reverse">
-      <ul class="points">
+      <ul class="points wide">
         <li>
           <h3>Missing pages are drawn.</h3>
           <p>In a wiki a model produced, they are the shape of the work left to do.</p>
@@ -311,19 +292,7 @@
         </li>
       </ul>
 
-      <div class="window">
-        <div class="chrome">
-          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="title">graph — 5,002 files</span>
-        </div>
-<pre class="log"><span class="dst">nodes</span>        6,456     <span class="rule normalized">1,454 missing pages</span>
-<span class="dst">edges</span>       21,655     <span class="rule exact">41,655 links resolved</span>
-<span class="dst">layout</span>     11.5 ms     <span class="rule exact">per step, 8 cores</span>
-<span class="dst">budget</span>     33.0 ms     <span class="rule exact">30 frames a second</span>
-<span class="dst">fold</span>       &gt; 1,500     <span class="rule heuristic">one node per folder</span></pre>
-      </div>
-    </div>
-        <figure class="shot inset">
+      <figure class="shot inset">
         <div class="window">
           <div class="chrome">
             <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -348,11 +317,211 @@
 <section id="search">
   <div class="wrap">
     <div class="section-head">
-      <span class="label">Search &amp; Doctor</span>
+      <span class="label">Search</span>
       <h2>Find it before you finish typing.</h2>
       <p>
         SQLite FTS5 over the whole vault, with a field syntax for the things frontmatter
-        actually holds — and one list of everything wrong with the links.
+        actually holds. Cold index of five thousand files in 3.3 seconds; every keystroke
+        after that answers in under 50 ms.
+      </p>
+    </div>
+
+    <div class="window">
+      <div class="chrome">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="title">query syntax</span>
+      </div>
+<pre class="log"><span class="src">attention</span>              <span class="dst">the word, ranked by bm25</span>
+<span class="src">"is all you need"</span>      <span class="dst">the exact phrase</span>
+<span class="src">type:concept</span>           <span class="dst">frontmatter type</span>
+<span class="src">tag:llm</span>                <span class="dst">and everything under llm/</span>
+<span class="src">path:wiki/</span>             <span class="dst">a folder</span>
+<span class="src">updated&gt;2026-06-01</span>     <span class="dst">changed since a date</span></pre>
+    </div>
+  </div>
+</section>
+
+<section id="doctor">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Doctor</span>
+      <h2>A list of problems became a review you finish.</h2>
+      <p>
+        Grouped by kind, worst first, one finding at a time. The card under the list shows
+        the source line beside the line it would write — computed by the same function that
+        performs the fix, so the preview <em>is</em> the fix.
+      </p>
+    </div>
+
+    <figure class="shot inset">
+      <div class="window">
+        <div class="chrome">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="title">link doctor — 29 findings, six kinds</span>
+        </div>
+        <img src="images/doctor.png" width="1256" height="808" loading="lazy"
+             alt="Detangle's Link Doctor grouped by finding kind, with one finding selected and a before-and-after preview of the line it would rewrite" />
+      </div>
+      <figcaption>
+        <span class="reading-label">Triage deck</span>
+        <span class="reading-line">Every finding in the demo wiki, by kind. The card shows the exact line before and after, then fix or ignore.</span>
+        <span class="readings">
+          <span class="reading unresolved">4 broken</span>
+          <span class="reading ambiguous">2 ambiguous</span>
+          <span class="reading normalized">17 non-canonical</span>
+        </span>
+      </figcaption>
+    </figure>
+
+    <div class="split">
+      <ul class="points">
+        <li>
+          <h3>A link can reach the right page and the wrong section.</h3>
+          <p>
+            <code>getting-started#opne</code> opens the file, lands you at the top, and
+            every other reader calls that a working link. Detangle reports it and names the
+            heading it probably meant.
+          </p>
+        </li>
+        <li>
+          <h3>Rung fourteen is the one you write.</h3>
+          <p>
+            An ambiguous link shows every file it could mean; pick one and it is remembered
+            for this vault. It is numbered last because it was added last, and consulted
+            first because it is not a guess.
+          </p>
+        </li>
+        <li>
+          <h3>Ignoring is keyed to the link, never the line.</h3>
+          <p>
+            Line numbers move every time the generator runs, and that is this product's
+            entire corpus. An ignore keyed to one would come back the moment you least
+            want to re-read a list you already finished.
+          </p>
+        </li>
+      </ul>
+
+      <div class="window">
+        <div class="chrome">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="title">two findings no other reader has</span>
+        </div>
+<pre class="log"><span class="src">wiki/link-rules.md:38</span>
+<span class="rule unresolved">brokenAnchor</span>   No heading or block <span class="dst">"What happens on opne"</span>
+               in wiki/getting-started.md.
+<span class="rule normalized">probably</span>       <span class="dst">"What happens on open"</span>
+
+<span class="src">wiki/link-rules.md:40</span>
+<span class="rule ambiguous">dialectDrift</span>   <span class="dst">"Multi-Head!"</span> matched only after slugging;
+               other renderers will not follow it.</pre>
+      </div>
+    </div>
+
+    <figure class="shot inset">
+      <div class="window">
+        <div class="chrome">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="title">settling an ambiguous link</span>
+        </div>
+        <img src="images/settle.png" width="1220" height="550" loading="lazy"
+             alt="An ambiguous link in a rendered page with a small count marker after it, opened to show both candidate files and which one is shown now" />
+      </div>
+      <figcaption>
+        <span class="reading-label">Settle</span>
+        <span class="reading-line">The marker sits after the link, not on it, so the link still follows on click. Your choice becomes rung fourteen for this vault.</span>
+        <span class="readings">
+          <span class="reading ambiguous">2 candidates</span>
+          <span class="reading exact">1 remembered</span>
+        </span>
+      </figcaption>
+    </figure>
+
+    <p class="micro">
+      In the browser demo, and on a folder Detangle cannot write back to, a settled choice
+      lasts for the session and the app says so rather than claiming a save that will not
+      survive.
+    </p>
+  </div>
+</section>
+
+<section id="change">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">Regeneration</span>
+      <h2>Your links got worse and nothing told you.</h2>
+      <p>
+        Mark the state before the generator runs. Afterwards, Detangle names the links that
+        used to resolve exactly and now resolve only because a later rule rescued them.
+        Every other tool's link is binary — it works or it doesn't — so none of them can
+        describe a link that still works and works worse.
+      </p>
+    </div>
+
+    <figure>
+      <div class="ladder">
+        <div class="side">
+          <h3>Detangle</h3>
+          <div class="rungs" aria-hidden="true">
+            <div class="rung touched"><span class="step">1</span><span class="name">exact vault path</span></div>
+            <div class="rung touched"><span class="step">2</span><span class="name">note-relative path</span></div>
+            <div class="rung touched"><span class="step">3</span><span class="name">case-sensitive filename</span></div>
+            <div class="rung"><span class="step">4</span><span class="name">path suffix</span></div>
+            <div class="rung touched"><span class="step">5</span><span class="name">case-insensitive filename</span></div>
+            <div class="rung touched"><span class="step">6</span><span class="name">normalized name</span></div>
+            <div class="rung"><span class="step">7</span><span class="name">alias or title</span></div>
+            <div class="rung"><span class="step">8</span><span class="name">identifier</span></div>
+            <div class="rung"><span class="step">9</span><span class="name">folder index</span></div>
+            <div class="rung"><span class="step">10</span><span class="name">encoding variant</span></div>
+            <div class="rung"><span class="step">11</span><span class="name">extension probe</span></div>
+            <div class="rung"><span class="step">12</span><span class="name">nearest name</span></div>
+            <div class="rung"><span class="step">13</span><span class="name">placeholder</span></div>
+            <div class="rung"><span class="step">14</span><span class="name">remembered choice</span></div>
+            <span class="drop a"></span>
+            <span class="drop b"></span>
+            <span class="drop c"></span>
+          </div>
+        </div>
+
+        <div class="side">
+          <h3>Every other reader</h3>
+          <div class="rungs binary" aria-hidden="true">
+            <div class="rung">works</div>
+            <div class="rung">broken</div>
+          </div>
+          <p class="ladder-note">
+            Nothing can fall, because there is nowhere to fall to.
+          </p>
+        </div>
+      </div>
+
+      <figcaption>
+        <span class="reading-label">Regeneration diff</span>
+        <span class="reading-line">One page moved out of its folder in the demo wiki. Five links fell down the ladder in three distinct ways — and not one of them stopped working, which is exactly why nothing else would have mentioned it.</span>
+        <span class="readings">
+          <span class="reading">1 renamed page</span>
+          <span class="reading normalized">5 links fell</span>
+          <span class="reading exact">0 broke</span>
+        </span>
+      </figcaption>
+    </figure>
+
+    <p class="micro">
+      There is no automatic snapshot. The file watcher fires dozens of times during a
+      generation run, so a guess at when the generator finished would diff against half a
+      corpus — which is worse than no diff. You press a button.
+    </p>
+  </div>
+</section>
+
+<section id="lint">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="label">CI</span>
+      <h2>The same doctor, for the thing that wrote the wiki.</h2>
+      <p>
+        <code>detangle-lint</code> runs the identical pass from a terminal and prints JSON.
+        It ships inside the portable archive rather than the installers — those are for the
+        reader, this is for the pipeline.
       </p>
     </div>
 
@@ -360,40 +529,49 @@
       <div class="window">
         <div class="chrome">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="title">query syntax</span>
+          <span class="title">detangle-lint samples/ --fail-on warning</span>
+          <button class="copy" type="button" data-copy="lint">Copy</button>
         </div>
-<pre class="log"><span class="src">attention</span>              <span class="dst">the word, ranked by bm25</span>
-<span class="src">"is all you need"</span>      <span class="dst">the exact phrase</span>
-<span class="src">type:concept</span>           <span class="dst">frontmatter type</span>
-<span class="src">tag:llm</span>                <span class="dst">and everything under llm/</span>
-<span class="src">path:wiki/</span>             <span class="dst">a folder</span>
-<span class="src">updated&gt;2026-06-01</span>     <span class="dst">changed since a date</span></pre>
+<pre class="log" id="lint"><span class="key">"counts"</span>: {
+  <span class="key">"error"</span>: <span class="num">4</span>, <span class="key">"warning"</span>: <span class="num">6</span>, <span class="key">"info"</span>: <span class="num">17</span>,
+  <span class="key">"byKind"</span>: {
+    <span class="key">"brokenLink"</span>: <span class="num">4</span>,        <span class="key">"ambiguousLink"</span>: <span class="num">2</span>,
+    <span class="key">"duplicateSlug"</span>: <span class="num">4</span>,     <span class="key">"nonCanonicalLink"</span>: <span class="num">17</span>,
+    <span class="key">"brokenAnchor"</span>: <span class="num">1</span>,      <span class="key">"anchorDialectDrift"</span>: <span class="num">1</span> } },
+<span class="key">"rules"</span>: {
+  <span class="key">"wiki"</span>: {
+    <span class="rule exact">"noteRelativePath"</span>: <span class="num">1</span>,
+    <span class="rule normalized">"pathSuffix"</span>: <span class="num">1</span>,
+    <span class="rule normalized">"caseInsensitiveStem"</span>: <span class="num">1</span>,
+    <span class="rule normalized">"normalizedName"</span>: <span class="num">3</span>,
+    <span class="rule normalized">"alias"</span>: <span class="num">2</span> } }</pre>
       </div>
 
       <ul class="points">
         <li>
-          <h3>Every broken link, in one list.</h3>
+          <h3>The histogram is the product.</h3>
           <p>
-            Broken, ambiguous, non-canonical, orphaned, stale, duplicated, oversized, and
-            malformed frontmatter — each with the file and the line.
+            Broken-link checkers are twenty years old, and <code>lychee</code> and
+            <code>markdownlint</code> already emit JSON. What none of them can emit is
+            which <em>step</em> of the chain each folder's links needed. That is feedback
+            the generator can act on, and it requires the ladder to exist.
           </p>
         </li>
         <li>
-          <h3>Fix all safe.</h3>
+          <h3><code>--fail-on error, warning, info</code> or <code>never</code>.</h3>
           <p>
-            Rewrites only the links that have exactly one correct answer. Ambiguous and
-            broken links are never touched, because neither one does.
-          </p>
-        </li>
-        <li>
-          <h3>Or write the missing page.</h3>
-          <p>
-            One click stubs the file a broken link was pointing at, from your vault's own
-            template, so it looks like the notes around it.
+            A broken link is the only Error, so gating on the default would never notice
+            the interesting findings. The flag exists because otherwise nobody would gate
+            on it at all.
           </p>
         </li>
       </ul>
     </div>
+
+    <p class="micro">
+      Eight links written inside <code>wiki/</code> resolved. One of them by a rule that is
+      not a rescue.
+    </p>
   </div>
 </section>
 
@@ -483,18 +661,19 @@
     <div class="section-head">
       <span class="label">Documentation</span>
       <h2>Read it before you download it.</h2>
-      <p>Nine pages, written for somebody deciding whether this is worth the disk space.</p>
+      <p>Ten pages, written for somebody deciding whether this is worth the disk space.</p>
     </div>
 
     <div class="doclinks">
-      <a href="docs/link-resolution.html">Link resolution<span>The thirteen rules, in order</span></a>
+      <a href="docs/link-resolution.html">Link resolution<span>The fourteen rules, in order</span></a>
       <a href="docs/formats.html">Formats<span>What is detected, and what changes</span></a>
       <a href="docs/diagrams.html">Diagrams<span>Mermaid and DBML offline</span></a>
       <a href="docs/search.html">Search<span>The query syntax</span></a>
-      <a href="docs/link-doctor.html">Link Doctor<span>Findings and safe fixes</span></a>
+      <a href="docs/link-doctor.html">Link Doctor<span>Findings, triage and safe fixes</span></a>
       <a href="docs/graph.html">Graph view<span>Reading the picture</span></a>
       <a href="docs/editing-and-export.html">Editing and export<span>Atomic saves, four export shapes</span></a>
       <a href="docs/keyboard.html">Keyboard<span>Every shortcut</span></a>
+      <a href="docs/detangle-lint.html">detangle-lint<span>JSON findings for CI</span></a>
       <a href="docs/faq.html">FAQ<span>What it deliberately does not do</span></a>
     </div>
   </div>
@@ -505,7 +684,7 @@
     <div class="section-head">
       <span class="label">Download</span>
       <h2>Point it at a folder.</h2>
-      <p>Version <span id="version">0.1.0</span>. Free, MIT, and the same build on every platform.</p>
+      <p>Version <span id="version">0.2.0</span>. Free, MIT, and the same build on every platform.</p>
     </div>
 
     <div class="os-panels" id="os-panels">
@@ -546,7 +725,7 @@
         </div>
         <p class="step">Or install the <code>.deb</code>, which adds a desktop entry:</p>
         <div class="command">
-          <span class="prompt">$ </span><span data-command>sudo apt install ./detangle_0.1.0_amd64.deb</span>
+          <span class="prompt">$ </span><span data-command>sudo apt install ./detangle_0.2.0_amd64.deb</span>
           <button type="button" data-copy-command>Copy</button>
         </div>
         <p>
@@ -560,7 +739,8 @@
         <p class="step">
           Download <code>Detangle-win-x64.exe</code> from
           <a href="https://github.com/donaldsteele/detangle/releases/latest">the latest release</a>
-          and run it. There is also a portable zip if you would rather not install anything.
+          and run it. There is also a portable zip, which is where
+          <code>detangle-lint</code> lives.
         </p>
         <p class="step">
           The build is not signed with a paid certificate, so SmartScreen will warn you the

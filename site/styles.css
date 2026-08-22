@@ -603,6 +603,15 @@ pre.log .dst {
   color: var(--red);
 }
 
+/*
+  The fourteenth rung is the only one at full strength. Thirteen of them are the machine
+  guessing at somebody's wiki and are dimmed accordingly; this one is the reader's own
+  answer, so it is not dimmed and not coloured like a confidence level.
+*/
+.rule.settled {
+  color: var(--text);
+}
+
 figcaption {
   margin-top: 12px;
   color: var(--faint);
@@ -669,6 +678,12 @@ h2 {
   padding: 0;
   display: grid;
   gap: 18px;
+}
+
+/* Points with no panel beside them: three across rather than one narrow column. */
+.points.wide {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px 34px;
 }
 
 .points h3 {
@@ -978,6 +993,246 @@ h2 {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--faint);
+}
+
+/* --- changelog cards ------------------------------------------------------- */
+
+.release-date {
+  margin: -4px 0 12px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+#releases h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dim);
+}
+
+#releases ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--dim);
+  font-size: 14.5px;
+}
+
+#releases li {
+  margin-bottom: 4px;
+}
+
+/* --- release rail ----------------------------------------------------------
+   One hairline row under the header naming what is new, as navigation rather than as an
+   announcement. Five proper nouns and no adjectives: the way to make five features feel
+   like a release is to let the reader count them.
+   -------------------------------------------------------------------------- */
+
+.release-rail {
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.release-rail .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.release-rail .ver {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.release-rail .ver:hover {
+  color: var(--accent-hover);
+}
+
+.release-rail .sep {
+  color: var(--faint);
+}
+
+.release-rail a:not(.ver) {
+  color: var(--dim);
+  text-decoration: none;
+}
+
+.release-rail a:not(.ver):hover {
+  color: var(--text);
+}
+
+@media (max-width: 700px) {
+  /* The rail is a nicety; at phone width the nav above it is doing this job already. */
+  .release-rail {
+    display: none;
+  }
+}
+
+/* --- the ladder: the delta drawn on the object the reader already learned ---
+   Every other figure on this page is the product quoted. This one is the site
+   explaining, so it uses the page's own tokens rather than the dark frame that wraps the
+   screenshots — it has to read correctly in both themes.
+
+   Fourteen hairlines against two slabs is the whole argument, and it needs no annotation
+   beyond the caption.
+   -------------------------------------------------------------------------- */
+
+.ladder {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 26px;
+  margin-top: 34px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.ladder .side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ladder .side > h3 {
+  margin: 0;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rungs {
+  position: relative;
+  display: grid;
+  grid-template-rows: repeat(14, 1fr);
+  grid-template-columns: 1fr;
+  flex: 1;
+  min-height: 360px;
+}
+
+.rung {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 46px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.rung:last-child {
+  border-bottom: 1px solid var(--border);
+}
+
+.rung .step {
+  min-width: 18px;
+  text-align: right;
+}
+
+/*
+  The rungs a link actually landed on, before and after. Brighter than the rest so the
+  falls have something to connect that the eye can find.
+*/
+.rung.touched {
+  color: var(--text);
+}
+
+.rungs.binary {
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.rungs.binary .rung {
+  justify-content: center;
+  padding-left: 0;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+/*
+  A fall from one rung to another, drawn over the rungs rather than among them: a grid
+  child with an explicit row pushes the auto-placed rungs into extra columns, which turns
+  the ladder into a table. Absolute percentages avoid that and are exact, because the rows
+  are equal fractions of a known height.
+
+  The three falls below are the real deltas measured on samples/ and pinned by
+  SampleVaultDeltaTests. They run from the middle of the rung a link used to resolve on to
+  the middle of the one it resolves on now, and they change only when that does.
+*/
+.drop {
+  position: absolute;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.drop::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid var(--accent);
+  transform: translateX(-50%);
+}
+
+/* 1 -> 3: exact vault path, now case-sensitive filename. */
+.drop.a {
+  left: 12px;
+  top: 3.57%;
+  height: 14.29%;
+}
+
+/* 2 -> 5: note-relative path, now case-insensitive filename. */
+.drop.b {
+  left: 22px;
+  top: 10.71%;
+  height: 21.43%;
+}
+
+/* 2 -> 6: note-relative path, now normalized name. */
+.drop.c {
+  left: 32px;
+  top: 10.71%;
+  height: 28.57%;
+}
+
+.ladder-note {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+
+@media (max-width: 760px) {
+  .ladder {
+    grid-template-columns: 1fr;
+  }
+
+  .rungs {
+    min-height: 300px;
+  }
+}
+
+/* --- JSON in a log panel ---------------------------------------------------- */
+
+pre.log .key {
+  color: var(--dim);
+}
+
+pre.log .num {
+  color: var(--text);
 }
 
 /* --- footer ---------------------------------------------------------------- */
