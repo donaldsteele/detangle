@@ -189,6 +189,32 @@ nav a:hover {
   }
 }
 
+/*
+  On a phone the four remaining links, the wordmark and the theme button are wider than
+  the screen, and the button was being cut off the right edge. Tightening the gaps buys
+  back enough; below 400px the changelog goes too, since it is the one of the four with
+  a home on the releases page anyway.
+*/
+@media (max-width: 480px) {
+  header .wrap {
+    gap: 12px;
+  }
+
+  nav {
+    gap: 12px;
+  }
+
+  nav a {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 400px) {
+  nav a[href="changelog.html"] {
+    display: none;
+  }
+}
+
 .toggle {
   border: 1px solid var(--border-strong);
   background: var(--panel);
