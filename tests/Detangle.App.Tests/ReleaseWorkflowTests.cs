@@ -31,10 +31,14 @@ public class ReleaseWorkflowTests
     {
         string workflow = Workflow();
 
-        // And the Intel build runs on an Intel runner, so the .app that gets signed is
-        // the one that was built and tested.
-        Assert.Contains("runner: macos-13", workflow, StringComparison.Ordinal);
+        // Both of them, on Apple Silicon. The Intel build used to run on an Intel runner
+        // so the .app that got signed was the one built and tested, but GitHub retired
+        // that image: the first tagged release sat queued for twenty-five minutes with no
+        // runner ever assigned, because a job asking for a retired label waits rather than
+        // failing. What this pins now is that macOS work stays on macOS at all, which is
+        // what notarization actually requires.
         Assert.Contains("runner: macos-latest", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("macos-13", workflow, StringComparison.Ordinal);
         Assert.Contains("notarytool", workflow, StringComparison.Ordinal);
     }
 
