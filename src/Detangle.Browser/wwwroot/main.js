@@ -66,6 +66,15 @@ function settle(text) {
   detail.textContent = finished + ' files, and nothing further';
 }
 
+// How many times one asset is fetched before the demo gives up on it, and how long it
+// waits between tries. A static host can answer a single request with a 503 while a
+// deploy propagates, and this loader replaces the runtime's own fetch - including the
+// retry the runtime would otherwise have done on our behalf.
+const ATTEMPTS = 4;
+const BACKOFF_MS = 400;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function loadBootResource(type, name, uri, hash) {
   if (PASS_THROUGH[type]) {
     return undefined;
@@ -74,51 +83,76 @@ function loadBootResource(type, name, uri, hash) {
   requested += 1;
   paint();
 
-  // force-cache is parity with the runtime, not an improvement on it: every downloadable
-  // entry in the inlined boot config already carries cache: "force-cache", and the
-  // runtime's own fetch honours that before falling back to no-cache. It is repeated here
-  // because this callback replaces that fetch entirely, and dropping it would quietly
-  // turn a second visit into eighty revalidation round trips. Safe for these assets
-  // either way: each one carries its content hash in its filename, so a cached copy can
-  // never be the wrong one.
-  //
-  // Integrity is passed through unchanged, which does diverge from the runtime in one
-  // respect: it checks config.disableIntegrityCheck first, and this does not. Nothing
-  // sets that flag today. If something ever does — surviving a host that re-encodes
-  // bodies is the usual reason — the opt-out will not reach here, and the failure looks
-  // like the red "runtime did not load" panel with no explanation.
-  const init = { cache: 'force-cache' };
+  return fetchWithRetry(uri, hash);
+}
 
-  if (hash) {
-    init.integrity = hash;
-  }
+async function fetchWithRetry(uri, hash) {
+  let failure;
 
-  return fetch(uri, init).then(function (response) {
-    if (!response.ok) {
-      finished += 1;
-      paint();
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    // force-cache is parity with the runtime: every downloadable entry in the inlined
+    // boot config already carries it, and dropping it would turn a second visit into
+    // eighty revalidation round trips. Safe here because each asset carries its content
+    // hash in its filename. A retry deliberately reloads instead, so a cached failure
+    // cannot be handed back for ever.
+    const init = { cache: attempt === 0 ? 'force-cache' : 'reload' };
 
-      return response;
+    if (hash) {
+      init.integrity = hash;
     }
 
-    // The byte count is read from a clone and the original response is handed back
-    // untouched. Rebuilding a Response around an ArrayBuffer would work out to the same
-    // bytes, but dotnet.js only takes the WebAssembly.compileStreaming path when
-    // Content-Type is exactly "application/wasm", and it would mean withholding the 11 MB
-    // native module from the runtime until it had been buffered here first. Cloning
-    // costs a second reader on the same body and changes nothing the runtime sees.
-    response.clone().arrayBuffer().then(function (buffer) {
-      received += buffer.byteLength;
-      finished += 1;
-      paint();
-    }, function () {
-      // A body that cannot be read twice is a counting problem, not a loading one — the
-      // runtime still has its own copy. Keep the file counter honest and move on.
-      finished += 1;
-      paint();
-    });
+    try {
+      const response = await fetch(uri, init);
 
-    return response;
+      // A 5xx from a static host is nearly always transient. It also arrives with a body
+      // - an error page - which subresource integrity then hashes and rejects, so the
+      // failure surfaces as a TypeError rather than as a status. Retrying is what makes
+      // that recoverable; returning it immediately is what made a single hiccup during a
+      // deploy break the whole demo until the cache cleared.
+      if (response.ok || response.status < 500) {
+        if (response.ok) {
+          count(response);
+        } else {
+          finished += 1;
+          paint();
+        }
+
+        return response;
+      }
+
+      failure = new Error(`${uri} answered ${response.status}`);
+    } catch (error) {
+      // Thrown when integrity fails, which is what an error page hashed against a real
+      // asset's digest looks like from here.
+      failure = error;
+    }
+
+    if (attempt < ATTEMPTS - 1) {
+      await sleep(BACKOFF_MS * (attempt + 1));
+    }
+  }
+
+  finished += 1;
+  paint();
+
+  throw failure;
+}
+
+// The byte count is read from a clone and the original response is handed back untouched.
+// Rebuilding a Response around an ArrayBuffer would work out to the same bytes, but
+// dotnet.js only takes the WebAssembly.compileStreaming path when Content-Type is exactly
+// "application/wasm", and it would mean withholding the 11 MB native module from the
+// runtime until it had been buffered here first.
+function count(response) {
+  response.clone().arrayBuffer().then(function (buffer) {
+    received += buffer.byteLength;
+    finished += 1;
+    paint();
+  }, function () {
+    // A body that cannot be read twice is a counting problem, not a loading one - the
+    // runtime still has its own copy. Keep the file counter honest and move on.
+    finished += 1;
+    paint();
   });
 }
 
