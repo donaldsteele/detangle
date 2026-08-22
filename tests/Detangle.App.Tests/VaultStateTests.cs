@@ -10,12 +10,12 @@ namespace Detangle.App.Tests;
 /// Tests for remembered disambiguation choices (plan.md section 15.2) — the one step in
 /// the resolution chain the reader writes.
 /// </summary>
-public class ChoiceStoreTests : IDisposable
+public class VaultStateTests : IDisposable
 {
     private readonly string _root = Path.Combine(
         Path.GetTempPath(), "detangle-choice-" + Guid.NewGuid().ToString("N")[..8]);
 
-    public ChoiceStoreTests()
+    public VaultStateTests()
     {
         Directory.CreateDirectory(Path.Combine(_root, "alpha"));
         Directory.CreateDirectory(Path.Combine(_root, "zebra"));
@@ -61,7 +61,7 @@ public class ChoiceStoreTests : IDisposable
         ShellViewModel first = Open();
         first.Settle(Ambiguous(first), Document(first, "zebra/note.md"));
 
-        Assert.True(File.Exists(Path.Combine(_root, ".detangle", "choices.json")));
+        Assert.True(File.Exists(Path.Combine(_root, ".detangle", "state.json")));
 
         // A second reader of the same vault gets the first one's decision.
         ShellViewModel second = Open();
@@ -96,7 +96,7 @@ public class ChoiceStoreTests : IDisposable
 
         // ...and is not claimed to have been saved anywhere. The .detangle folder itself
         // may well exist: the search cache lives there too.
-        Assert.False(File.Exists(Path.Combine(_root, ".detangle", "choices.json")));
+        Assert.False(File.Exists(Path.Combine(_root, ".detangle", "state.json")));
         Assert.Contains("until this tab is closed", shell.Status, StringComparison.Ordinal);
     }
 
@@ -104,7 +104,7 @@ public class ChoiceStoreTests : IDisposable
     public void AnUnreadableChoiceFileIsNoChoicesRatherThanNoVault()
     {
         Directory.CreateDirectory(Path.Combine(_root, ".detangle"));
-        File.WriteAllText(Path.Combine(_root, ".detangle", "choices.json"), "{ this is not json");
+        File.WriteAllText(Path.Combine(_root, ".detangle", "state.json"), "{ this is not json");
 
         ShellViewModel shell = Open();
 

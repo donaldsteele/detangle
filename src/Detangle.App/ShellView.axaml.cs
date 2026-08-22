@@ -57,8 +57,11 @@ public partial class ShellView : UserControl
         MentionList.SelectionChanged += OnMentionSelectionChanged;
         ListKeyboard.Wire(PaletteBox, PaletteList, CommitPalette);
         ListKeyboard.Wire(SearchBox, SearchList, CommitSearch);
-        FindingList.SelectionChanged += OnFindingSelectionChanged;
+        FindingTree.SelectionChanged += OnFindingSelectionChanged;
         FixAllButton.Click += OnFixAllClick;
+        ApplyFixButton.Click += OnApplyFixClick;
+        IgnoreFindingButton.Click += OnIgnoreFindingClick;
+        ShowIgnoredButton.Click += (_, _) => ViewModel?.ShowIgnored();
         _graph = CreateGraphCanvas(isDark: ActualThemeVariant == ThemeVariant.Dark);
         GraphHost.Children.Add(_graph);
         GraphFitButton.Click += (_, _) => _graph.FitToView();
@@ -604,14 +607,71 @@ public partial class ShellView : UserControl
         }
     }
 
+    /// <summary>
+    /// Shows what the selected finding is and what acting on it would do (plan.md section
+    /// 15.3). Selecting a group heading rather than a finding clears the card, because a
+    /// group is a count rather than something to act on.
+    /// </summary>
     private void OnFindingSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (FindingList.SelectedItem is Detangle.Core.Diagnostics.Finding finding)
+        if (SelectedFinding is not { } finding || ViewModel is not { } viewModel)
         {
-            // Suggestions for a broken link are worked out when one is opened, not for
-            // every finding in the vault; the search behind them is not cheap.
-            ViewModel?.Suggest(finding);
-            ViewModel?.Open(finding.Document);
+            FindingActions.IsVisible = false;
+            return;
+        }
+
+        // Suggestions for a broken link are worked out when one is opened, not for every
+        // finding in the vault; the search behind them is not cheap.
+        viewModel.Suggest(finding);
+
+        // Suggest replaces the finding in the collection, so the one to draw is whatever
+        // is selected now rather than the instance the event carried.
+        finding = SelectedFinding ?? finding;
+
+        viewModel.Open(finding.Document);
+
+        FindingActions.IsVisible = true;
+        FindingDetail.Text = finding.SuggestedAnchor is { Length: > 0 } heading
+            ? $"{finding.Message} Probably \"{heading}\"."
+            : finding.Message;
+
+        (string Before, string After)? preview = viewModel.PreviewFix(finding);
+
+        FindingDiff.IsVisible = preview is not null;
+        ApplyFixButton.IsVisible = preview is not null;
+        CreateNoteButton.IsVisible = finding.Kind == Detangle.Core.Diagnostics.FindingKind.BrokenLink;
+
+        if (preview is { } lines)
+        {
+            FindingBefore.Text = "- " + lines.Before.Trim();
+            FindingAfter.Text = "+ " + lines.After.Trim();
+        }
+    }
+
+    /// <summary>The finding the tree has selected, or null when a group heading is.</summary>
+    private Detangle.Core.Diagnostics.Finding? SelectedFinding =>
+        FindingTree.SelectedItem as Detangle.Core.Diagnostics.Finding;
+
+    private void OnApplyFixClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedFinding is not { } finding || ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        viewModel.Status = viewModel.ApplyFix(finding)
+            ? $"Rewrote one link in {finding.Document.RelativePath}."
+            : "That link is no longer where the finding says it is; the file was not touched.";
+
+        FindingActions.IsVisible = false;
+    }
+
+    private void OnIgnoreFindingClick(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedFinding is { } finding)
+        {
+            ViewModel?.Ignore(finding);
+            FindingActions.IsVisible = false;
         }
     }
 

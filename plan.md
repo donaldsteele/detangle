@@ -676,6 +676,17 @@ Effort L. Risk: it writes to a corpus the product promises not to touch, so it m
 visibly opt-in and refuse on detached copies the way `ShellEditing.cs:89` already refuses
 saves. Expect the diff card to expose 14.1 immediately; fix that first and write the test.
 
+**Shipped.** The panel is a `TreeView` over `FindingGroup`, one group per kind, worst
+severity first, with an action card docked to the bottom rather than a dialog — triage is
+look, decide, next, and a dialog puts a click between every finding and the one after it.
+`PreviewFix` returns the before and after line straight out of `ApplyRewrite`, so the
+preview *is* the fix. `ApplyFix` writes one finding and still refuses anything with no
+suggested rewrite, so a near-miss guess cannot be applied by accident. The ignore list
+lives in the same `.detangle/state.json` as the remembered choices — `ChoiceStore` became
+`VaultState` rather than growing a second sidecar file, which is the unification 15.4
+needs anyway — and is keyed on path, kind, target and fragment, never on the line number.
+A test regenerates the file with every line moved and asserts the ignore holds.
+
 ### 15.4 Regeneration Diff — the ladder gets a time axis
 
 After the generator runs again, say which links that used to resolve cleanly now resolve only

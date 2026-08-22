@@ -182,31 +182,63 @@
                 <StackPanel DockPanel.Dock="Top" Margin="12,14,12,8" Spacing="6">
                   <Button Name="FixAllButton" Content="Fix all safe" HorizontalAlignment="Stretch"
                           ToolTip.Tip="Rewrites links that resolved by rules 4-8 to their canonical target" />
-                  <Button Name="CreateNoteButton" Content="Create the missing note"
-                          HorizontalAlignment="Stretch"
-                          ToolTip.Tip="Writes the page the selected broken link was pointing at" />
+                  <Button Name="ShowIgnoredButton" HorizontalAlignment="Stretch"
+                          Content="{Binding IgnoredCount, StringFormat='Show {0} ignored'}"
+                          IsVisible="{Binding IgnoredCount}"
+                          ToolTip.Tip="Reports every finding you have dismissed in this vault again" />
                 </StackPanel>
-                <ListBox Name="FindingList" ItemsSource="{Binding Findings}">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="diagnostics:Finding">
-                      <StackPanel Spacing="3">
-                        <StackPanel Orientation="Horizontal" Spacing="7">
-                          <Border Width="3" Height="12" CornerRadius="2" VerticalAlignment="Center"
-                                  Background="{Binding Severity, Converter={x:Static app:SeverityBrushConverter.Instance}}" />
-                          <TextBlock Text="{Binding Kind}" FontSize="12.5"
-                                     Foreground="{DynamicResource Text}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding Document.RelativePath}" Classes="identifier"
+
+                <!--
+                  The action card. It is docked to the bottom rather than shown in a
+                  dialog because triage is a rhythm: look, decide, next. A dialog puts a
+                  click between every finding and the one after it.
+                -->
+                <Border DockPanel.Dock="Bottom" Name="FindingActions" IsVisible="False"
+                        Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}"
+                        BorderThickness="0,1,0,0" Padding="12,10">
+                  <StackPanel Spacing="8">
+                    <TextBlock Name="FindingDetail" Classes="secondary" TextWrapping="Wrap" MaxLines="3" />
+
+                    <StackPanel Name="FindingDiff" Spacing="3" IsVisible="False">
+                      <TextBlock Name="FindingBefore" Classes="identifier"
+                                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Name="FindingAfter" Classes="identifier"
+                                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Name="ApplyFixButton" Content="Fix" IsVisible="False"
+                              ToolTip.Tip="Rewrites this one link and saves the file" />
+                      <Button Name="CreateNoteButton" Content="Create the note" IsVisible="False"
+                              ToolTip.Tip="Writes the page this broken link was pointing at" />
+                      <Button Name="IgnoreFindingButton" Content="Ignore"
+                              ToolTip.Tip="Stops reporting this one; the file is not touched" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <TreeView Name="FindingTree" ItemsSource="{Binding FindingGroups}">
+                  <TreeView.DataTemplates>
+                    <TreeDataTemplate DataType="app:FindingGroup" x:DataType="app:FindingGroup"
+                                      ItemsSource="{Binding Findings}">
+                      <StackPanel Orientation="Horizontal" Spacing="7" Margin="0,3">
+                        <Border Width="3" Height="12" CornerRadius="2" VerticalAlignment="Center"
+                                Background="{Binding Severity, Converter={x:Static app:SeverityBrushConverter.Instance}}" />
+                        <TextBlock Text="{Binding Title}" FontSize="12.5"
+                                   Foreground="{DynamicResource Text}" />
+                      </StackPanel>
+                    </TreeDataTemplate>
+                    <DataTemplate DataType="diagnostics:Finding" x:DataType="diagnostics:Finding">
+                      <StackPanel Spacing="2" Margin="0,3">
+                        <TextBlock Text="{Binding Document.RelativePath}" FontSize="12.5"
+                                   Foreground="{DynamicResource Text}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Message}" Classes="secondary"
-                                   TextWrapping="Wrap" MaxLines="3" />
-                        <TextBlock Text="{Binding SuggestedAnchor, StringFormat='Probably &quot;{0}&quot;'}"
-                                   Classes="identifier" TextTrimming="CharacterEllipsis"
-                                   IsVisible="{Binding SuggestedAnchor, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                   TextWrapping="Wrap" MaxLines="2" />
                       </StackPanel>
                     </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
+                  </TreeView.DataTemplates>
+                </TreeView>
               </DockPanel>
             </TabItem>
 

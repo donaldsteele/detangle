@@ -60,7 +60,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly List<VaultDocument> _back = [];
     private readonly List<VaultDocument> _forward = [];
 
-    private ChoiceStore _choices = ChoiceStore.Empty;
+    private VaultState _state = VaultState.Empty;
     private VaultSnapshot? _vault;
     private RenderModelBuilder? _builder;
     private LinkGraph? _graph;
@@ -177,6 +177,9 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Link Doctor findings over the whole vault.</summary>
     public ObservableCollection<Finding> Findings { get; } = [];
 
+    /// <summary>The same findings, grouped by kind, for the triage tree.</summary>
+    public ObservableCollection<FindingGroup> FindingGroups { get; } = [];
+
     /// <summary>The vault, once one is open.</summary>
     public VaultSnapshot? Vault => _vault;
 
@@ -245,7 +248,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // A detached copy is a folder the browser handed over, not a place on disk, so
         // its choices can only last as long as the tab. Opening the store with no path
         // is what makes that true rather than pretending otherwise.
-        _choices = ChoiceStore.Open(isDetachedCopy ? null : _vault.RootPath);
+        _state = VaultState.Open(isDetachedCopy ? null : _vault.RootPath);
 
         _builder = new RenderModelBuilder(
             _vault,
@@ -254,9 +257,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 DiagramRenderer = renderer,
                 DiagramTheme = IsDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light,
             },
-            rememberedChoices: _choices.Choices);
+            rememberedChoices: _state.Choices);
 
-        _graph = LinkGraph.Build(_vault, _choices.Choices);
+        _graph = LinkGraph.Build(_vault, _state.Choices);
         VaultPath = _vault.RootPath;
 
         // Search and the file watcher are conveniences, not the product. Both need
@@ -519,7 +522,7 @@ public sealed partial class ShellViewModel : ObservableObject
                     _diagramRenderer, new FileDiagramCacheStore(_vault.RootPath)),
                 DiagramTheme = IsDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light,
             },
-            rememberedChoices: _choices.Choices);
+            rememberedChoices: _state.Choices);
     }
 
     /// <summary>Reindexes and re-examines after files changed outside the app.</summary>
@@ -544,7 +547,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         _vault = rescanned;
-        _graph = LinkGraph.Build(_vault, _choices.Choices);
+        _graph = LinkGraph.Build(_vault, _state.Choices);
         _search?.Rebuild(_vault, ReadContent);
 
         foreach (VaultChange change in changes)
@@ -588,11 +591,122 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         foreach (Finding finding in LinkDoctor.Examine(_graph, ReadContent)
+            .Where(f => !_state.IsIgnored(f))
             .OrderBy(f => f.Severity)
             .ThenBy(f => f.Document.RelativePath, StringComparer.OrdinalIgnoreCase))
         {
             Findings.Add(finding);
         }
+
+        RegroupFindings();
+    }
+
+    /// <summary>Rebuilds the triage tree from the flat list.</summary>
+    private void RegroupFindings()
+    {
+        FindingGroups.Clear();
+
+        foreach (FindingGroup group in Findings
+            .GroupBy(f => f.Kind)
+            .Select(g => new FindingGroup(g.Key, g))
+            .OrderBy(g => g.Severity)
+            .ThenBy(g => g.Kind))
+        {
+            FindingGroups.Add(group);
+        }
+
+        IgnoredCount = _state.IgnoredCount;
+    }
+
+    /// <summary>How many findings the reader has dismissed in this vault.</summary>
+    [ObservableProperty]
+    public partial int IgnoredCount { get; set; }
+
+    /// <summary>
+    /// What applying a finding's fix would do to its line: the text as it stands and the
+    /// text as it would be written.
+    /// <para>
+    /// Computed on demand rather than kept on the finding, because it means reading the
+    /// document, and a panel that read four hundred files to draw a list would be a panel
+    /// nobody opened twice. <see cref="LinkDoctor.ApplyRewrite"/> is pure — content in,
+    /// content out — so the preview is the fix, not a guess at it.
+    /// </para>
+    /// </summary>
+    /// <param name="finding">The finding to preview.</param>
+    /// <returns>The before and after lines, or null when there is nothing to apply.</returns>
+    public (string Before, string After)? PreviewFix(Finding finding)
+    {
+        if (finding.SuggestedRewrite is not { Length: > 0 }
+            || ReadContent(finding.Document) is not { } content)
+        {
+            return null;
+        }
+
+        if (LinkDoctor.ApplyRewrite(content, finding) is not { } rewritten)
+        {
+            return null;
+        }
+
+        string[] before = Lines(content);
+        string[] after = Lines(rewritten);
+        int index = finding.Line - 1;
+
+        return index >= 0 && index < before.Length && index < after.Length
+            ? (before[index], after[index])
+            : null;
+
+        static string[] Lines(string text) =>
+            text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+    }
+
+    /// <summary>
+    /// Applies one finding's fix to the file it is in, and returns true when the file was
+    /// written.
+    /// <para>
+    /// Separate from <see cref="FixAllSafe"/> on purpose: that one is restricted to the
+    /// links with exactly one correct answer, and this is the reader saying they have
+    /// looked at this one. It still refuses anything with no suggested rewrite, so a
+    /// near-miss guess cannot be applied by accident.
+    /// </para>
+    /// </summary>
+    public bool ApplyFix(Finding finding)
+    {
+        if (finding.SuggestedRewrite is not { Length: > 0 }
+            || ReadContent(finding.Document) is not { } content
+            || LinkDoctor.ApplyRewrite(content, finding) is not { } rewritten
+            || !WriteAtomically(finding.Document.AbsolutePath, content: rewritten))
+        {
+            return false;
+        }
+
+        Reconcile();
+
+        return true;
+    }
+
+    /// <summary>
+    /// Stops reporting one finding. The key is the document, the kind and the link — never
+    /// the line number, which moves every time the generator runs.
+    /// </summary>
+    public void Ignore(Finding finding)
+    {
+        bool persisted = _state.Ignore(finding);
+
+        Findings.Remove(finding);
+        RegroupFindings();
+
+        Status = persisted
+            ? $"Ignoring that {finding.Kind} in {finding.Document.RelativePath}."
+            : $"Ignoring that {finding.Kind} until this tab is closed; this copy cannot be written to.";
+    }
+
+    /// <summary>Reports every dismissed finding again.</summary>
+    public void ShowIgnored()
+    {
+        _state.UnignoreAll();
+        RefreshFindings();
+
+        Status = "Showing every finding again.";
     }
 
     /// <summary>
@@ -649,12 +763,12 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        bool persisted = _choices.Remember(source, resolution.Link.RawTarget, chosen);
+        bool persisted = _state.Remember(source, resolution.Link.RawTarget, chosen);
 
         // Everything downstream reads the chain's answers, so they all have to be asked
         // again: the graph the Doctor and the graph view are built from, and every open
         // tab, whose links carry the rule that resolved them.
-        _graph = LinkGraph.Build(_vault, _choices.Choices);
+        _graph = LinkGraph.Build(_vault, _state.Choices);
         RebuildBuilder();
 
         foreach (DocumentTab tab in Tabs)

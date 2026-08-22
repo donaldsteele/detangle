@@ -35,7 +35,7 @@ public partial class ShellView
 
         CreateNoteButton.Click += (_, _) =>
         {
-            if (FindingList.SelectedItem is Core.Diagnostics.Finding finding)
+            if (FindingTree.SelectedItem is Core.Diagnostics.Finding finding)
             {
                 ViewModel?.CreateMissingNote(finding);
             }
