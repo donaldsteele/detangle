@@ -289,7 +289,9 @@ Sync, collaboration, plugins, mobile, AI/RAG features, full WYSIWYG editing, not
 | **11 — Ladder over time and off-app** | Regeneration Diff and `detangle lint` (§15.4–15.5) | Rescan a regenerated vault and get an accurate rule-delta; `detangle lint` produces the same findings as the panel, as JSON, with a settable failure severity |
 
 Phases 1–3 are the load-bearing risk. Phase 6 and 9 are the marketing payload. Phases 0–9
-shipped in v0.1.0; 10 and 11 are post-1.0 and specified in §15.
+shipped in v0.1.0. Phases 10 and 11 are complete on `main` and unreleased: both defects in
+§14 are fixed and all five features in §15 are built, with the "shipped" note under each
+recording what the specification got wrong.
 
 ---
 
