@@ -285,7 +285,11 @@ Sync, collaboration, plugins, mobile, AI/RAG features, full WYSIWYG editing, not
 | **8 — Package & release** | Velopack installers + auto-update, AppImage, notarized `.app`, signed Windows build, release workflow | One tag produces all six RID artifacts; in-app update round-trips |
 | **9 — Website & WASM demo** | `site/` landing + docs + changelog on `detangle.dev`; `Detangle.Browser` demo loading `samples/` | Deployed; demo loads and renders a Mermaid + DBML page in-browser |
 
-Phases 1–3 are the load-bearing risk. Phase 6 and 9 are the marketing payload.
+| **10 — Ladder made actionable** | Two known defects (§14) fixed; Anchor Doctor, Settle, Triage deck (§15.1–15.3); the `.detangle` state store they share | A finding can be reviewed, previewed and applied one at a time; an ambiguous link remembers the reader's choice across a restart; `RememberedChoice` and `BrokenAnchor` both appear in the resolution audit |
+| **11 — Ladder over time and off-app** | Regeneration Diff and `detangle lint` (§15.4–15.5) | Rescan a regenerated vault and get an accurate rule-delta; `detangle lint` produces the same findings as the panel, as JSON, with a settable failure severity |
+
+Phases 1–3 are the load-bearing risk. Phase 6 and 9 are the marketing payload. Phases 0–9
+shipped in v0.1.0; 10 and 11 are post-1.0 and specified in §15.
 
 ---
 
@@ -492,3 +496,248 @@ Accent color: pick a warm amber or teal against the near-black so it reads as a 
 - **Performance gates in CI** — generate a synthetic 5,000-file vault; assert cold scan+index <5s, search keystroke→results <50ms, graph frame time at 5k nodes.
 - **Manual cross-platform smoke** — open a real Obsidian vault, a real LLM Wiki (`wiki/` + `raw/`), and an MkDocs tree on Windows, Linux, and macOS; confirm flavor detection, diagram rendering offline (with the network disabled), and export round-trip.
 - **Website** — Lighthouse ≥95 on all four axes; verify with JS disabled that OS panels, copy commands, and all nav still work; verify CSP with no console violations.
+
+---
+
+## 14. Known defects
+
+Found by a review pass after v0.1.0, verified against the source. Neither is speculative;
+both have a named reproduction. Fixed as the first work of phase 10, because two of the
+phase-10 features build directly on top of them.
+
+### 14.1 `ApplyRewrite` rewrites the wrong link when a line has two links to the same target
+
+`LinkDoctor.ApplyRewrite` (`src/Detangle.Core/Diagnostics/LinkDoctor.cs:385`) locates the
+link to replace with `line.IndexOf(resolution.Link.RawTarget)` — the *first* occurrence on
+the line. A line such as
+
+```markdown
+See [the spec](spec) and, for the older revision, [the spec](spec).
+```
+
+produces two findings on the same line with the same `RawTarget`, and both rewrites land
+on the first link. The second link is never fixed and the first is rewritten twice.
+
+The fix is already paid for: `LinkReference.Column`
+(`src/Detangle.Core/Linking/LinkReference.cs:69`) is the 0-based column where the link
+starts, set from the Markdig source offset at `DocumentParser.cs:115` and `:140`, and
+`ApplyRewrite` ignores it. Search from `Column` rather than from 0, and treat a target that
+is not found at or after that column as the "not where expected" case the method already
+returns null for. Test: two same-target links on one line, assert the second finding
+rewrites the second link.
+
+This ships in v0.1.0 and fails silently — "fix all safe" reports the count it intended to
+write, not the count it wrote correctly.
+
+### 14.2 The command palette and search results have no keyboard path
+
+`ShellView` wires `PaletteList.SelectionChanged` and `SearchList.SelectionChanged` straight
+to invoke (`src/Detangle.App/ShellView.axaml.cs:582` and `:591`). Selecting an entry *is*
+running it, so arrow-key navigation cannot exist: moving the highlight would fire the first
+entry the highlight touched.
+
+In practice the lists are mouse-only. `Ctrl+K` focuses `PaletteBox`
+(`ShellView.axaml.cs:330`); arrow keys there move the caret inside the `TextBox` and never
+reach the `ListBox`, and there is no `Enter` handler on either the box or the list —
+`OnWindowKeyDown` (`ShellView.axaml.cs:637`) handles `Escape` for the palette and nothing
+else. A palette you must click is not a command palette.
+
+The fix is a highlight/commit split: keep `PaletteBox` focused, handle `Up`/`Down`/`Enter`
+on the box by moving `PaletteList.SelectedIndex`, and invoke only on `Enter` or on
+`PointerReleased`; drop the `SelectionChanged` handlers. The same shape applies to
+`SearchList`. Any new shortcut must be gated on `IsKeyboardFocusWithin` for its panel;
+`OnWindowKeyDown` fires window-wide and would otherwise eat keystrokes in `SearchBox` and in
+the `Ctrl+E` editor.
+
+---
+
+## 15. Post-1.0 — the resolution ladder, made actionable
+
+v1 shipped a 14-step resolution chain that can say *how* every link resolved. Nothing else
+in the category has that, because every competitor's link is binary: it works or it does
+not, so none of them can represent a link that still works but works *worse*. Everything in
+this section is that same claim applied at a different range — below the page, at the
+reader's judgment, at the review surface, over time, and at the machine that wrote the wiki.
+They share plumbing deliberately: **one** JSON writer in `Detangle.Core`, **one** `.detangle`
+state store, **one** finding pipeline.
+
+Constraints unchanged from section 4: offline by default, must build for the WebAssembly
+head, trimming-safe with `TreatWarningsAsErrors`, no JavaScript host, and no
+reflection-based `JsonSerializer` (it fails the browser head's `TrimMode=full` build).
+`Detangle.Core` stays Avalonia-free.
+
+### 15.1 Anchor Doctor — section-level link integrity
+
+When a page links to a heading that does not exist, name the heading it probably meant
+instead of landing the reader at the top of the page.
+
+The diagnosis already exists and is reported nowhere: `AnchorResolver`
+(`src/Detangle.Core/Linking/AnchorResolver.cs:89`, `:109`) builds
+`new AnchorResolution(AnchorRule.Unresolved, Warning: "No heading or block …")` and no
+consumer reads `Warning`. Section 5.6 says an unresolved anchor still navigates to the file,
+which stays true — this makes the silent part visible.
+
+- Add `BrokenAnchor` (Warning) and `AnchorDialectDrift` (Info) to the **tail** of
+  `FindingKind` (`LinkDoctor.cs:8`). There is no exhaustive `switch` over it in `src/` or in
+  the axaml, so appending is safe.
+- An `ExamineAnchors` pass reads `LinkResolution.Anchor` (populated at `LinkResolver.cs:508`)
+  and scores the fragment against `VaultDocument.Headings` using the **static**
+  `HeadingSlugger.SlugCore` — not the instance `Slug`, which mutates dedup state — plus
+  `VaultIndex.EditDistance`.
+- Order the pass so self-references are not skipped. `ExamineLinks` early-`continue`s on
+  `Target == null` / `Rule == NotAttempted`, which is exactly `[[#Heading]]`, and a
+  page-local heading typo is the commonest case of this defect.
+- `ApplyRewrite` needs an anchor-aware branch: the fragment is not part of `RawTarget`, and
+  for a self-reference `RawTarget` is `""`, where `IndexOf("")` returns 0 and today's code
+  would splice text at column 0. See section 14.1 — fix that first.
+- Do **not** widen `SafeToFix` (`LinkDoctor.cs:402`) to include anchor guesses. An
+  edit-distance-2 heading match is not a one-correct-answer rewrite.
+
+Effort S. Risk: dialect-drift false positives. `AnchorResolver` tries `RawHeading` before
+`HeadingSlug`, so `#overview` against `## Overview` already resolves; the drift rule must
+require that the fragment is *not* already a valid slug for the matched heading, or it will
+"fix" links that work everywhere. Ship `BrokenAnchor` first, `AnchorDialectDrift` behind it.
+
+### 15.2 Settle — the click that makes an ambiguous link yours
+
+When a link could mean three files, show the three and remember which one the reader picked,
+for this vault. Section 5.4 promises ambiguity is surfaced rather than guessed; this is where
+the reader's judgment enters the chain.
+
+The Core half is built and dead. `LinkResolver` short-circuits on a remembered choice
+(`LinkResolver.cs:83`), `ResolutionRule.RememberedChoice = 14` exists with its explanation
+string at `LinkResolution.cs:144`, and both `LinkGraph.Build(vault, rememberedChoices)`
+(`Graph/LinkGraph.cs:51`) and `RenderModelBuilder` take the dictionary. Nothing in
+`Detangle.App` ever supplies one.
+
+- A `ChoiceStore` keyed with `LinkResolver.ChoiceKey(sourceDirectory, rawTarget)` — **not**
+  raw target alone. The key is `{DirectoryPath} {NormalizePath(target)}`
+  (`LinkResolver.cs:44`, `:83`), and `LinkResolution` only carries `Link.SourcePath`, so the
+  store must derive `VaultDocument.DirectoryPath` the way `VaultScanner.cs:164` does, or look
+  the source up in the index. Get this wrong and the store silently never hits.
+- A `Func<LinkResolution, Control?> ActionFactory` hook beside the existing `PreviewFactory`
+  (`Rendering/Controls/DocumentRenderer.cs:66`), supplied by `ShellView.axaml.cs` next to
+  `BuildPreview`, so `Detangle.Rendering` stays App-free. Open it from the existing `Click`
+  handler in `LinkControl` (`DocumentRenderer.cs:961`), gated on non-exact resolutions. Do
+  not set `Button.Flyout` — that breaks navigation on every ambiguous link.
+- Thread the store through **all** construction sites: `ShellViewModel.cs:244`, `:252`,
+  `:487`, `:524`. `ApplyTheme` rebuilds `_builder` but not `_graph`, and `OnVaultChanged`
+  rebuilds `_graph` with no choices, so a watcher rescan would drop every choice.
+
+Effort L standalone, M once the store in 15.4 is shared. Risk: where the state lives.
+`<vault>/.detangle/choices.json` mildly bends the read-only stance — though
+`.detangle/cache.db` is already written there (`Search/SearchIndex.cs:51`) and `.detangle` is
+scan-ignored (`VaultScanner.cs:20`). On a browser vault or a `StorageVaultImporter` copy
+(`IsDetachedCopy`, writes refused at `ShellEditing.cs:89`) the choice must visibly degrade to
+session-only rather than claim a save that dies with the tab.
+
+### 15.3 Triage deck — the Link Doctor as a review you finish
+
+One finding at a time, showing the exact before/after line it would write, with fix, skip, or
+"this one is fine, stop telling me". This is the surface the rest of the section acts on:
+15.1's anchor findings, 15.2's picker ("pick canonical target · remember for vault" belongs
+on the same card), and 15.4's "since last run" filter.
+
+This is unbuilt spec, not a new idea — section 6.3 already specifies per-finding
+fix/create/ignore and a preview diff for "fix all safe". What shipped is a flat `ListBox` and
+two global buttons (`ShellView.axaml:176`), where `FixAllButton` writes immediately and
+reports a count afterwards (`ShellView.axaml.cs:617`, `ShellViewModel.cs:598`).
+
+Everything needed is public, tested and unused: `LinkDoctor.SuggestFix` (`:340`),
+`ApplyRewrite` (`:365` — pure, content in and content out, so the diff preview is free),
+`CanonicalTargetFor` (`:328`), `Finding.SuggestedRewrite`.
+
+- A two-level model behind a `TreeView`. Avalonia has no `ICollectionView` grouping, so
+  grouping by kind is hand-rolled.
+- A card in the panel footer showing source line vs rewritten line, computed lazily per
+  selected finding against `ReadContent`.
+- An ignore list keyed on **relative path + `Resolution.Link.RawTarget` + kind, never on line
+  number**. Line numbers move on every regeneration, which is precisely this product's corpus.
+- Gate every new shortcut on `FindingList.IsKeyboardFocusWithin` — see section 14.2.
+
+Effort L. Risk: it writes to a corpus the product promises not to touch, so it must be
+visibly opt-in and refuse on detached copies the way `ShellEditing.cs:89` already refuses
+saves. Expect the diff card to expose 14.1 immediately; fix that first and write the test.
+
+### 15.4 Regeneration Diff — the ladder gets a time axis
+
+After the generator runs again, say which links that used to resolve cleanly now resolve only
+because the chain rescued them. "12 links that resolved by `ExactVaultPath` now resolve by
+`FuzzyNearest`" is a sentence no other tool in the category can produce. In the app it is a
+"since last run" filter on the Triage deck and a delta on the status bar's link summary.
+
+- New `src/Detangle.Core/History/VaultSnapshotRecord.cs` plus
+  `VaultDelta.Compare(previous, current)`. The record stays small: per document a
+  `RelativePath` and a normalized content hash (NFC + line endings — mtime and size cannot
+  carry "rewritten", a generator stamps fresh mtimes on byte-identical files, and a Windows
+  git checkout would otherwise report the whole vault rewritten), plus a per-link tuple of
+  `(Line, RawTarget, ResolutionRule, Target.RelativePath)` taken straight off
+  `LinkGraph.Resolutions` (`Graph/LinkGraph.cs:47`).
+- Persist through an `IVaultStateStore` in Core, with a JSON-file implementation under
+  `.detangle/` and an in-memory one for WASM and tests. **This store is the single home for
+  15.2's remembered choices, 15.3's ignore list, the baseline snapshot, and the unsaved
+  `VaultProfile.IsUserOverride` flag** — four promised-but-missing pieces of per-vault state
+  landing once.
+- Core needs its own JSON writer *and* a parser that never throws on a truncated or foreign
+  file. `JsonText` is `internal` to `Detangle.Rendering` (`Export/JsonText.cs:16`) and only
+  quotes strings; move it down into Core (Rendering already references Core) rather than
+  copying it. The repo's only JSON-reading precedent is `JsonDocument.Parse`
+  (`NavigationTree.cs:268`). Reflection-based `JsonSerializer` will fail the browser head's
+  build.
+
+Effort L. Risk: **nothing tells Detangle a generation run happened.** `VaultWatcher` debounces
+at 250 ms and will fire dozens of times mid-run, so auto-snapshotting on rescan diffs against
+a half-written corpus. This needs an explicit baseline moment — a "mark current state" action,
+or a quiet-period threshold — designed before any code is written. Secondary: identity across
+renames must match on frontmatter `id`, then normalized stem, never on path, and it can still
+be wrong.
+
+### 15.5 `detangle lint` — the report the generator can read
+
+Run the same Link Doctor from a terminal or CI and get machine-readable, rule-attributed
+findings back. This moves the audience from the human reading the wiki to the agent that
+wrote it.
+
+The differentiating payload is *not* "broken links found" — `mkdocs --strict` and Docusaurus'
+`onBrokenLinks: 'throw'` have done that for years, and both `lychee` and `markdownlint-cli2`
+already emit JSON and SARIF. It is the `NonCanonicalLink` set plus a histogram of
+`ResolutionRule` over `LinkGraph.Resolutions`, grouped by source folder: "every link in `raw/`
+needed step-10 encoding-variant rescue." That is feedback a generator can act on, and it
+requires the 14-step ladder to exist.
+
+- `LinkDoctor.Examine` is already a pure function of `(LinkGraph, contentReader, options)` and
+  `Detangle.Core` has zero Avalonia references — `Detangle.Core.csproj:5` says in-file that
+  this is "so a `detangle lint` CLI stays possible later". Compose `VaultScanner.Scan`,
+  `LinkGraph.Build`, `LinkDoctor.Examine`.
+- Put the serializer in Core as `Diagnostics/FindingsReport.cs`, so the WASM head can produce
+  the identical report from `ShellViewModel.Findings`.
+- Name: `Detangle.Desktop.csproj:6` already claims `<AssemblyName>detangle</AssemblyName>` and
+  `release.yml` ships it, so either name the new head `detangle-lint` or put `lint` behind the
+  existing binary beside `--export-site`. A real console head is worth having regardless:
+  `Detangle.Desktop` is `OutputType=WinExe`, so `Console.Error` from `HeadlessExport` goes
+  nowhere on Windows.
+- Exit codes: only `BrokenLink` is `FindingSeverity.Error` (`LinkDoctor.cs:154`), so "exit 1
+  on Error" means "exit 1 on broken links only" and the interesting finding is advisory. Ship
+  `--fail-on <severity>` or nobody will ever gate on it.
+
+Effort M. Risk: trim surface. Core drags `YamlDotNet` and `Microsoft.Data.Sqlite` for code
+paths lint never touches, and `Detangle.Desktop.csproj:36` already documents having to set
+`ILLinkTreatWarningsAsErrors=false` and root `YamlDotNet` whole. Promise a trimmable console
+app, not AOT, or the first `dotnet publish` fails. Resist scope creep toward export and graph
+dump in v1.
+
+### 15.6 Considered and deliberately left out
+
+- **Hint mode** (two-letter tags on every link, Vimium-style). The differentiation claim is
+  false: `obsidian-jump-to-link`, `azim58/link-hints` and Vimium all ship this, and the WASM
+  head is a Skia canvas where a browser extension cannot help — the opposite of a moat. What
+  was real inside it is section 14.2, filed as a defect.
+- **Page Map** (marker rail beside the scrollbar). The scrollspy half is shipped by Logseq,
+  MkDocs Material and Docusaurus, and the rail is a decade-old VS Code idiom. Its one useful
+  increment — click a Doctor finding, land on it — belongs to 15.3 and gets built there.
+- **Twin Finder** (near-duplicate page detection by shingling). The strongest omission and the
+  closest call: a real failure of agent-written corpora, and no competitor ships an offline
+  duplicate *audit*. Deferred because it is L, the whole feature is threshold tuning against
+  heavily templated generated text, it re-reads the vault a second time on a doctor pass
+  already held to a 30 s budget, and — decisively — it is the one candidate that does not
+  touch the resolution ladder, so it compounds with nothing else here. Revisit after 15.4.
