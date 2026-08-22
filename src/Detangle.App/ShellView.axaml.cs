@@ -622,12 +622,10 @@ public partial class ShellView : UserControl
         }
 
         // Suggestions for a broken link are worked out when one is opened, not for every
-        // finding in the vault; the search behind them is not cheap.
-        viewModel.Suggest(finding);
-
-        // Suggest replaces the finding in the collection, so the one to draw is whatever
-        // is selected now rather than the instance the event carried.
-        finding = SelectedFinding ?? finding;
+        // finding in the vault; the search behind them is not cheap. What comes back is
+        // the finding to draw: replacing it in the collection clears the tree's selection,
+        // so re-reading the selection here would find nothing.
+        finding = viewModel.Suggest(finding);
 
         viewModel.Open(finding.Document);
 

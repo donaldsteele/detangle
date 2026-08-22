@@ -770,9 +770,15 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>
     /// Fills in what a broken link or a broken fragment probably meant, in place, the
-    /// first time a reader opens that finding.
+    /// first time a reader opens that finding, and returns the finding to draw.
+    /// <para>
+    /// It returns rather than only replacing because replacing the selected item in an
+    /// observable collection clears the tree's selection: a caller that re-read the
+    /// selection afterwards would draw the finding as it was before the search ran, which
+    /// is to say without the answer the search was for.
+    /// </para>
     /// </summary>
-    public void Suggest(Finding finding)
+    public Finding Suggest(Finding finding)
     {
         bool wanted = finding.Kind switch
         {
@@ -783,15 +789,34 @@ public sealed partial class ShellViewModel : ObservableObject
 
         if (!wanted)
         {
-            return;
+            return finding;
         }
 
         int index = Findings.IndexOf(finding);
 
-        if (index >= 0)
+        if (index < 0)
         {
-            Findings[index] = LinkDoctor.SuggestFix(finding);
+            return finding;
         }
+
+        Finding suggested = LinkDoctor.SuggestFix(finding);
+
+        Findings[index] = suggested;
+
+        // The tree binds to the groups, which hold their own list. Replacing only in the
+        // flat one leaves the panel showing the finding as it was before the search ran,
+        // which is to say without the answer the search was for.
+        foreach (FindingGroup group in FindingGroups.Where(g => g.Kind == finding.Kind))
+        {
+            int position = group.Findings.IndexOf(finding);
+
+            if (position >= 0)
+            {
+                group.Findings[position] = suggested;
+            }
+        }
+
+        return suggested;
     }
 
     /// <summary>

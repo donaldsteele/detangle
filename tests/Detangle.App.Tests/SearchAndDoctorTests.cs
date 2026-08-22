@@ -150,6 +150,14 @@ public class SearchAndDoctorTests : IDisposable
         Assert.Equal(
             "The Quarry",
             Assert.Single(shell.Findings, f => f.Kind == FindingKind.BrokenAnchor).SuggestedAnchor);
+
+        // The triage tree binds to the groups, not to the flat list, so a suggestion that
+        // only lands in one of them never reaches the panel.
+        Assert.Equal(
+            "The Quarry",
+            Assert.Single(
+                shell.FindingGroups.Single(g => g.Kind == FindingKind.BrokenAnchor).Findings)
+                .SuggestedAnchor);
     }
 
     [Fact]

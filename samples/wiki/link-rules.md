@@ -33,7 +33,16 @@ the file:
 - [[Self-Attention#Multi-head]] — a heading on another page, reached by the page's title
 
 An anchor that does not exist is reported rather than followed silently, because a link
-that lands on the wrong part of the right page is the kind of wrong that survives review.
+that lands on the wrong part of the right page is the kind of wrong that survives review:
+
+- [[wiki/getting-started#What happens on opne]] — there is no such heading. The link still
+  opens the page, and the Link Doctor names the heading it probably meant.
+- [[Self-Attention#Multi-Head!]] — this one works here and nowhere else. It only matched
+  because the fragment was slugified first, so GitHub and an exported site will both drop
+  the reader at the top of the page instead.
+
+Neither of those is a broken link. Both pages open. That is exactly why they are worth
+reporting: nothing else tells you a link is fine and still wrong.
 
 ## When there is more than one answer
 

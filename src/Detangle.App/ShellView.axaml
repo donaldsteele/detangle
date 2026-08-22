@@ -216,11 +216,16 @@
                   <StackPanel Spacing="8">
                     <TextBlock Name="FindingDetail" Classes="secondary" TextWrapping="Wrap" MaxLines="3" />
 
-                    <StackPanel Name="FindingDiff" Spacing="3" IsVisible="False">
+                    <!--
+                      Wrapped rather than ellipsised: what changed is usually at the end of
+                      the line, which is exactly the part a single line trims away, so the
+                      preview would show everything except the point of it.
+                    -->
+                    <StackPanel Name="FindingDiff" Spacing="5" IsVisible="False">
                       <TextBlock Name="FindingBefore" Classes="identifier"
-                                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                 TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
                       <TextBlock Name="FindingAfter" Classes="identifier"
-                                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                 TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -234,7 +239,15 @@
                   </StackPanel>
                 </Border>
 
-                <TreeView Name="FindingTree" ItemsSource="{Binding FindingGroups}">
+                <!--
+                  A TreeView measures its items at unbounded width, so a wrapping message
+                  inside one never wraps: it lays out on a single line and pushes a
+                  horizontal scrollbar under the panel instead. Disabling that scrollbar is
+                  what forces the available width back to the panel's, and stretching the
+                  item content is what makes the row use it.
+                -->
+                <TreeView Name="FindingTree" ItemsSource="{Binding FindingGroups}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                   <TreeView.DataTemplates>
                     <TreeDataTemplate DataType="app:FindingGroup" x:DataType="app:FindingGroup"
                                       ItemsSource="{Binding Findings}">
