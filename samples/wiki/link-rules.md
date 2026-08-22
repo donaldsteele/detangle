@@ -15,11 +15,11 @@ there — that provenance is the whole point of this reader.
 
 | Written | Resolves by |
 |---|---|
-| [[Attention Is All You Need]] | normalized name |
+| [[Attention Is All You Need]] | normalized name — the file is `attention-is-all-you-need.md` |
 | [[entities/attention-is-all-you-need]] | exact vault path |
-| [[Attention Is All You Need\|the 2017 paper]] | the same match, aliased |
-| [attention](../entities/attention-is-all-you-need.md) | markdown link, relative |
-| [[wiki/setup]] | folder index |
+| [[Attention Is All You Need\|the 2017 paper]] | the same match, shown under an alias |
+| [attention](../entities/attention-is-all-you-need.md) | an ordinary markdown link, relative |
+| [[wiki/setup]] | folder index — `wiki/setup/index.md`, a folder rather than a file |
 
 None of those are configuration. They are what a language model writes when you ask it for
 a wiki, and reconciling them with the filenames it chose is the work.

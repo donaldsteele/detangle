@@ -4,6 +4,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Detangle.Core.Vault;
 using Detangle.Highlighting;
 using Detangle.Rendering.Controls;
@@ -301,6 +302,80 @@ public class DocumentRendererTests(HeadlessAppFixture app)
 
             Assert.NotEmpty(control.GetLogicalDescendants().OfType<Image>());
         });
+    }
+
+    [Theory]
+    [InlineData(560)]
+    [InlineData(760)]
+    public void ATableOfProseWrapsInsteadOfRunningOffThePage(int pane)
+    {
+        // Cells were laid out inside a horizontally scrolling viewport, which measures its
+        // content at infinite width - and a star-sized column given infinite width behaves
+        // exactly like an Auto one. Nothing wrapped: this table came out 728 points wide
+        // whatever the pane, so in a 559 point reading pane the last 169 points of every
+        // row were simply cut off.
+        //
+        // Laid out in a window on purpose. A control measured on its own outside one
+        // reports a size of zero here, which an assertion about width passes without ever
+        // touching the thing it is supposed to be testing.
+        const string Markdown = """
+            | Written | Resolves by |
+            |---|---|
+            | [[Attention Is All You Need]] | normalized name — the file is `attention-is-all-you-need.md` |
+            | [[entities/attention-is-all-you-need]] | exact vault path |
+            | [attention](../entities/attention-is-all-you-need.md) | an ordinary markdown link, relative |
+            | [[wiki/setup]] | folder index — `wiki/setup/index.md`, a folder rather than a file |
+            """;
+
+        (double width, double height) = LayOutTable(Markdown, pane);
+
+        Assert.True(width <= pane, $"the table came out {width:0} points wide in a {pane} point pane.");
+
+        // And it wrapped to get there rather than being clipped: four rows of prose at this
+        // width cannot fit on one line each.
+        Assert.True(height > 120, $"the table is only {height:0} points tall, so nothing wrapped.");
+    }
+
+    /// <summary>
+    /// Renders a scrap of markdown in a window of the given width and reports the size the
+    /// table was actually given.
+    /// </summary>
+    private (double Width, double Height) LayOutTable(string markdown, double pane)
+    {
+        string root = Path.Combine(Path.GetTempPath(), "detangle-table-" + Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "index.md"), markdown);
+
+        try
+        {
+            VaultSnapshot vault = VaultScanner.Scan(root);
+            var builder = new RenderModelBuilder(vault);
+            Rect bounds = default;
+
+            app.Invoke(() =>
+            {
+                Control rendered = new DocumentRenderer(DocumentTheme.Light)
+                    .Render(builder.Build(vault.Documents.Single(d => d.IsMarkdown)));
+
+                var window = new Window { Width = pane, Height = 900, Content = rendered };
+
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+
+                bounds = rendered.GetLogicalDescendants().OfType<Grid>()
+                    .First(g => g.ColumnDefinitions.Count == 2)
+                    .Bounds;
+
+                window.Close();
+            });
+
+            return (bounds.Width, bounds.Height);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static void Layout(Control control)

@@ -602,17 +602,19 @@ public sealed class DocumentRenderer
             }
         }
 
+        // The grid sits in the border directly. It used to sit in a horizontally scrolling
+        // viewport, which measures its content at infinite width - and a star-sized column
+        // given infinite width behaves exactly like an Auto one, so no cell ever wrapped.
+        // A table of prose came out 728 points wide in a 559 point pane and everything past
+        // the edge was cut off, with a scrollbar nobody looks for as the only way to read
+        // it. Sharing the real width and wrapping is what the star columns were chosen for.
         return new Border
         {
             BorderBrush = _theme.Border,
             BorderThickness = new Thickness(1, 1, 0, 0),
             CornerRadius = new CornerRadius(4),
-            Child = new ScrollViewer
-            {
-                Content = grid,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            },
+            ClipToBounds = true,
+            Child = grid,
         };
     }
 
