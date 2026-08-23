@@ -55,4 +55,8 @@ target for a broken link would turn a visible problem into a silent one.
 Detangle can follow `[[Attention Is All You Need]]`; nothing else can. Normalizing writes
 that answer down, so the vault keeps working after it leaves.
 
+Like **Fix all safe**, it asks first: choosing it opens the Link Doctor with a card listing
+every file it would rewrite and how many links in each. Nothing is touched until you
+confirm, and there is no undo afterwards.
+
 See also [[link-doctor]].

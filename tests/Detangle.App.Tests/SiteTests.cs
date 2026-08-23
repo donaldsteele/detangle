@@ -123,10 +123,10 @@ public partial class SiteTests
             linked.Add(match.Groups[1].Value);
         }
 
-        // The plan's doclink grid is nine pages, plus detangle-lint since 0.2.0. The
-        // point is the depth: enough that a skeptic can judge the product before
-        // downloading it.
-        Assert.Equal(10, linked.Count);
+        // The plan's doclink grid is nine pages, plus detangle-lint since 0.2.0 and
+        // regeneration since the baseline gained a command line. The point is the depth:
+        // enough that a skeptic can judge the product before downloading it.
+        Assert.Equal(11, linked.Count);
 
         foreach (string page in linked)
         {

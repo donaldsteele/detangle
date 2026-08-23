@@ -2,9 +2,11 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Detangle.Core.Diagnostics;
+using Detangle.Core.Editing;
 using Detangle.Core.Graph;
 using Detangle.Core.History;
 using Detangle.Core.Linking;
+using Detangle.Core.Repair;
 using Detangle.Core.Search;
 using Detangle.Core.Vault;
 using Detangle.Rendering;
@@ -62,6 +64,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly List<VaultDocument> _forward = [];
 
     private VaultState _state = VaultState.Empty;
+    private VaultSnapshotRecord _baseline = VaultSnapshotRecord.Empty;
     private VaultSnapshot? _vault;
     private RenderModelBuilder? _builder;
     private LinkGraph? _graph;
@@ -99,6 +102,14 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private string _searchSummary = string.Empty;
 
+    /// <summary>The selected tag, as the search box would spell it, or empty for none.</summary>
+    [ObservableProperty]
+    private string _selectedTag = string.Empty;
+
+    /// <summary>The header over the tag's page list: which tag, and how many pages.</summary>
+    [ObservableProperty]
+    private string _tagSummary = string.Empty;
+
     [ObservableProperty]
     private bool _isGraphVisible;
 
@@ -119,6 +130,17 @@ public sealed partial class ShellViewModel : ObservableObject
 
     [ObservableProperty]
     private string _graphSummary = string.Empty;
+
+    /// <summary>
+    /// What the pointer is over in the graph.
+    /// <para>
+    /// Its own line, in the graph's own header. It used to be written to the status bar,
+    /// which meant moving the mouse across the picture erased whatever the status bar was
+    /// saying — including the one-line report of an export that had just failed.
+    /// </para>
+    /// </summary>
+    [ObservableProperty]
+    private string _graphHover = string.Empty;
 
     [ObservableProperty]
     private string _graphTypeFilter = string.Empty;
@@ -148,14 +170,51 @@ public sealed partial class ShellViewModel : ObservableObject
         _diagramRenderer = diagramRenderer ?? new MermaiderDiagramRenderer();
     }
 
+    /// <summary>
+    /// What the head this shell is running in can do. Set by the head at startup; the
+    /// default is the desktop's, which is what a test constructing a bare shell is.
+    /// </summary>
+    public HeadCapabilities Capabilities { get; init; } = HeadCapabilities.Desktop;
+
+    /// <summary>
+    /// This reader's own settings, which live in their configuration directory rather than
+    /// in any vault. A head with nowhere to write leaves this as the empty one.
+    /// </summary>
+    public AppSettings Settings { get; init; } = AppSettings.None;
+
+    /// <summary>The vaults opened before, most recent first, for the start screen.</summary>
+    public ObservableCollection<RecentVault> RecentVaults { get; } = [];
+
     /// <summary>Raised when the reader should scroll to an anchor in the active document.</summary>
     public event EventHandler<string>? AnchorRequested;
+
+    /// <summary>
+    /// Raised when find-in-page should open. The bar belongs to the view — it searches a
+    /// control tree — so the palette asks rather than opening it.
+    /// </summary>
+    public event EventHandler? FindRequested;
+
+    /// <summary>
+    /// Raised when something other than the tag tree picked a tag — a chip in the page,
+    /// say — so the tree can move its selection to match.
+    /// </summary>
+    public event EventHandler<TagNode>? TagSelected;
 
     /// <summary>The navigation tree for the left rail.</summary>
     public ObservableCollection<NavigationNode> Navigation { get; } = [];
 
     /// <summary>The tag hierarchy for the tag browser.</summary>
     public ObservableCollection<TagNode> Tags { get; } = [];
+
+    /// <summary>
+    /// The pages carrying the selected tag, or any tag under it.
+    /// <para>
+    /// The tree shows a count; this is the count. Selecting a tag used to open one
+    /// arbitrary page out of the several it named, which is the one interaction in the
+    /// shell that did something other than what it appeared to do.
+    /// </para>
+    /// </summary>
+    public ObservableCollection<VaultDocument> TagDocuments { get; } = [];
 
     /// <summary>Open tabs.</summary>
     public ObservableCollection<DocumentTab> Tabs { get; } = [];
@@ -174,6 +233,16 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Hits for <see cref="SearchQuery"/>.</summary>
     public ObservableCollection<SearchHit> SearchResults { get; } = [];
+
+    /// <summary>
+    /// The ambiguities somebody settled in this vault, so they can be reviewed and undone.
+    /// <para>
+    /// Rung 14 is the only one a person writes, and until this list existed there was no
+    /// way to see what had been decided or to change your mind — the decision was
+    /// invisible from the moment it was made.
+    /// </para>
+    /// </summary>
+    public ObservableCollection<SettledChoice> SettledChoices { get; } = [];
 
     /// <summary>Link Doctor findings over the whole vault.</summary>
     public ObservableCollection<Finding> Findings { get; } = [];
@@ -216,22 +285,90 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <param name="isDetachedCopy">True when the folder is a copy that cannot be saved to.</param>
     public void OpenVault(string path, bool isDetachedCopy)
     {
-        IsDetachedCopy = isDetachedCopy;
-
-        if (string.IsNullOrWhiteSpace(path))
+        if (!Prepare(path, isDetachedCopy))
         {
-            Status = "Choose a folder to open.";
             return;
         }
 
+        if (Scan(path) is not { } scanned)
+        {
+            return;
+        }
+
+        Adopt(scanned, isDetachedCopy);
+    }
+
+    /// <summary>
+    /// Scans a vault off the UI thread and opens its most index-like page.
+    /// <para>
+    /// The scan reads every markdown file in the folder and parses each one, which on a
+    /// vault of a few thousand pages is long enough to freeze a window — and the start
+    /// screen's recent list makes that freeze the first thing a reader meets, every
+    /// launch. Only the scan moves: everything after it touches observable collections
+    /// and belongs on the thread that owns them.
+    /// </para>
+    /// </summary>
+    /// <param name="path">The folder to scan.</param>
+    /// <param name="isDetachedCopy">True when the folder is a copy that cannot be saved to.</param>
+    public async Task OpenVaultAsync(string path, bool isDetachedCopy = false)
+    {
+        if (!Prepare(path, isDetachedCopy))
+        {
+            return;
+        }
+
+        IsOpening = true;
+        Status = $"Reading {path}…";
+
         try
         {
-            _vault = VaultScanner.Scan(path);
+            // ConfigureAwait(true): what comes back has to be applied where the collections
+            // live, and this method is only ever called from a head that has a UI thread.
+            if (await Task.Run(() => Scan(path)).ConfigureAwait(true) is { } scanned)
+            {
+                Adopt(scanned, isDetachedCopy);
+            }
+        }
+        finally
+        {
+            IsOpening = false;
+        }
+    }
+
+    /// <summary>True while a vault is being read.</summary>
+    [ObservableProperty]
+    private bool _isOpening;
+
+    /// <summary>Settles what is true before a scan starts, or reports why there will not be one.</summary>
+    private bool Prepare(string path, bool isDetachedCopy)
+    {
+        IsDetachedCopy = isDetachedCopy;
+
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            return true;
+        }
+
+        Status = "Choose a folder to open.";
+
+        return false;
+    }
+
+    /// <summary>
+    /// Reads the folder, or reports why it could not be read. Runs off the UI thread in
+    /// the async path, so it touches nothing but its arguments and the status line.
+    /// </summary>
+    private VaultSnapshot? Scan(string path)
+    {
+        try
+        {
+            return VaultScanner.Scan(path);
         }
         catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
         {
             Status = ex.Message;
-            return;
+
+            return null;
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
@@ -240,8 +377,15 @@ public sealed partial class ShellViewModel : ObservableObject
             // than the platform allows. Path.GetFullPath rejects all of those before the
             // scan begins, and none of them are the filesystem exceptions above.
             Status = $"That is not a usable folder path: {ex.Message}";
-            return;
+
+            return null;
         }
+    }
+
+    /// <summary>Takes a scanned vault as the open one and builds everything derived from it.</summary>
+    private void Adopt(VaultSnapshot scanned, bool isDetachedCopy)
+    {
+        _vault = scanned;
 
         var renderer = new CachingDiagramRenderer(
             _diagramRenderer, new FileDiagramCacheStore(_vault.RootPath));
@@ -258,9 +402,10 @@ public sealed partial class ShellViewModel : ObservableObject
                 DiagramRenderer = renderer,
                 DiagramTheme = IsDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light,
             },
-            rememberedChoices: _state.Choices);
+            rememberedChoices: _state.Choices.ForResolver);
 
-        _graph = LinkGraph.Build(_vault, _state.Choices);
+        _graph = LinkGraph.Build(_vault, _state.Choices.ForResolver);
+        _baseline = isDetachedCopy ? VaultSnapshotRecord.Empty : BaselineStore.Load(_vault.RootPath);
         VaultPath = _vault.RootPath;
 
         // Search and the file watcher are conveniences, not the product. Both need
@@ -298,8 +443,13 @@ public sealed partial class ShellViewModel : ObservableObject
             _watcher = null;
         }
 
+        // A filter naming a page in the vault that was open before would hide every
+        // finding in the one being opened now.
+        FilterFindings(null);
+
         RefreshDelta();
         RefreshFindings();
+        RefreshSettledChoices();
 
         NavigationTreeBuilder.Result navigation = NavigationTreeBuilder.Build(_vault, ReadContent);
         NavigationSourceName = navigation.Source.ToString();
@@ -312,11 +462,14 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         Tags.Clear();
+        SelectTag(null);
 
         foreach (TagNode tag in TagTree.Build(_vault))
         {
             Tags.Add(tag);
         }
+
+        OnPropertyChanged(nameof(HasTags));
 
         Tabs.Clear();
         _back.Clear();
@@ -334,12 +487,80 @@ public sealed partial class ShellViewModel : ObservableObject
 
         OnPropertyChanged(nameof(HasVault));
 
+        if (!isDetachedCopy && Capabilities.CanPersistAcrossSessions)
+        {
+            Settings.Remember(_vault, DateTimeOffset.UtcNow);
+        }
+
+        RefreshRecentVaults();
+
         VaultDocument? first = FindStartPage();
 
         if (first is not null)
         {
             Open(first);
         }
+    }
+
+    /// <summary>Rereads the recent list, which the start screen shows when no vault is open.</summary>
+    public void RefreshRecentVaults()
+    {
+        RecentVaults.Clear();
+
+        foreach (RecentVault vault in Settings.Recent)
+        {
+            RecentVaults.Add(vault);
+        }
+
+        OnPropertyChanged(nameof(HasRecentVaults));
+    }
+
+    /// <summary>True when there is a recent list worth showing.</summary>
+    public bool HasRecentVaults => RecentVaults.Count > 0;
+
+    /// <summary>
+    /// True when a vault is open, has been examined, and nothing came back. The five empty
+    /// states below say what an empty pane means, because a blank panel is the one thing a
+    /// reader cannot tell apart from a panel that has not loaded.
+    /// </summary>
+    public bool HasCleanBillOfHealth => HasVault && FindingGroups.Count == 0;
+
+    /// <summary>True when the open vault has no tags anywhere.</summary>
+    public bool HasTags => Tags.Count > 0;
+
+    /// <summary>True when a page is open and nothing links to it.</summary>
+    public bool HasNoBacklinks => ActiveTab is not null && Backlinks.Count == 0;
+
+    /// <summary>True when a page is open and nothing names it without linking it.</summary>
+    public bool HasNoMentions => ActiveTab is not null && Mentions.Count == 0;
+
+    /// <summary>
+    /// Opens a vault from the recent list, or explains why it is not there any more.
+    /// <para>
+    /// A folder that has been moved or deleted is reported rather than thrown over, and
+    /// stays on the list marked missing: silently dropping it would leave a reader
+    /// wondering whether they had imagined opening it.
+    /// </para>
+    /// </summary>
+    /// <param name="vault">The entry that was chosen.</param>
+    public async Task OpenRecentAsync(RecentVault vault)
+    {
+        if (!vault.Exists)
+        {
+            Status = $"{vault.Path} is not there any more.";
+
+            return;
+        }
+
+        await OpenVaultAsync(vault.Path).ConfigureAwait(true);
+    }
+
+    /// <summary>Takes one vault off the recent list.</summary>
+    /// <param name="vault">The entry to forget.</param>
+    public void ForgetRecent(RecentVault vault)
+    {
+        Settings.Forget(vault);
+        RefreshRecentVaults();
     }
 
     /// <summary>Opens a document in a tab, reusing one that already shows it.</summary>
@@ -524,7 +745,7 @@ public sealed partial class ShellViewModel : ObservableObject
                     _diagramRenderer, new FileDiagramCacheStore(_vault.RootPath)),
                 DiagramTheme = IsDarkTheme ? DiagramTheme.Dark : DiagramTheme.Light,
             },
-            rememberedChoices: _state.Choices);
+            rememberedChoices: _state.Choices.ForResolver);
     }
 
     /// <summary>Reindexes and re-examines after files changed outside the app.</summary>
@@ -549,7 +770,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         _vault = rescanned;
-        _graph = LinkGraph.Build(_vault, _state.Choices);
+        _graph = LinkGraph.Build(_vault, _state.Choices.ForResolver);
         _search?.Rebuild(_vault, ReadContent);
 
         foreach (VaultChange change in changes)
@@ -612,7 +833,22 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         FindingGroups.Clear();
 
-        foreach (FindingGroup group in Findings
+        IEnumerable<Finding> shown = Findings;
+
+        // The ledger asked for one page. Filtering here rather than replacing the
+        // collection keeps every other reader of Findings — the fix-all pass, the report —
+        // looking at the whole vault, which is what they are for.
+        if (FindingPageFilter is { Length: > 0 } path)
+        {
+            shown = shown.Where(f => string.Equals(f.Document.RelativePath, path, StringComparison.Ordinal));
+
+            if (FindingConfidenceFilter is { } confidence)
+            {
+                shown = shown.Where(f => f.Resolution?.Confidence == confidence);
+            }
+        }
+
+        foreach (FindingGroup group in shown
             .GroupBy(f => f.Kind)
             .Select(g => new FindingGroup(g.Key, g))
             .OrderBy(g => g.Severity)
@@ -622,7 +858,42 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         IgnoredCount = _state.IgnoredCount;
+
+        OnPropertyChanged(nameof(HasCleanBillOfHealth));
     }
+
+    /// <summary>
+    /// Narrows the Doctor to one page, and optionally to one band of the ledger.
+    /// <para>
+    /// The strip has always known how the open page's links resolved. This is what turns
+    /// that from a picture into a question the panel can answer.
+    /// </para>
+    /// </summary>
+    /// <param name="relativePath">The page to narrow to, or null to show the whole vault.</param>
+    /// <param name="confidence">The resolution class to narrow to, or null for all of them.</param>
+    public void FilterFindings(string? relativePath, ResolutionConfidence? confidence = null)
+    {
+        FindingPageFilter = relativePath;
+        FindingConfidenceFilter = confidence;
+
+        RegroupFindings();
+
+        FindingFilterSummary = relativePath is { Length: > 0 } path
+            ? confidence is { } band
+                ? $"{band} links in {path}"
+                : $"this page only · {path}"
+            : null;
+    }
+
+    /// <summary>The page the Doctor is narrowed to, or null for the whole vault.</summary>
+    public string? FindingPageFilter { get; private set; }
+
+    /// <summary>The resolution class the Doctor is narrowed to, or null for all of them.</summary>
+    public ResolutionConfidence? FindingConfidenceFilter { get; private set; }
+
+    /// <summary>The chip over the finding tree, or null when nothing is narrowed.</summary>
+    [ObservableProperty]
+    private string? _findingFilterSummary;
 
     /// <summary>How many findings the reader has dismissed in this vault.</summary>
     [ObservableProperty]
@@ -655,12 +926,18 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        bool persisted = _state.MarkBaseline(VaultSnapshotRecord.Take(_graph, ReadContent));
+        _baseline = VaultSnapshotRecord.Take(_graph, ReadContent);
+
+        // The same file detangle-lint --mark writes, at the vault root. A gate in
+        // continuous integration and this button have to mean the same thing.
+        bool persisted = !IsDetachedCopy
+            && Capabilities.CanPersistAcrossSessions
+            && BaselineStore.Save(_vault!.RootPath, _baseline);
 
         RefreshDelta();
 
         Status = persisted
-            ? "Marked. From now on, changes are measured against the vault as it stands."
+            ? $"Marked in {BaselineStore.FileName}. Changes are measured against the vault as it stands."
             : "Marked for this session; this copy cannot be written to.";
     }
 
@@ -669,7 +946,7 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         Delta = _graph is null
             ? VaultDelta.None
-            : VaultDelta.Compare(_state.Baseline, VaultSnapshotRecord.Take(_graph, ReadContent));
+            : VaultDelta.Compare(_baseline, VaultSnapshotRecord.Take(_graph, ReadContent));
 
         ChangeSummary = Delta.Summary();
 
@@ -847,12 +1124,13 @@ public sealed partial class ShellViewModel : ObservableObject
             return;
         }
 
-        bool persisted = _state.Remember(source, resolution.Link.RawTarget, chosen);
+        bool persisted = _state.Choices.Settle(
+            source, resolution.Link.RawTarget, chosen, resolution.Candidates.Count);
 
         // Everything downstream reads the chain's answers, so they all have to be asked
         // again: the graph the Doctor and the graph view are built from, and every open
         // tab, whose links carry the rule that resolved them.
-        _graph = LinkGraph.Build(_vault, _state.Choices);
+        _graph = LinkGraph.Build(_vault, _state.Choices.ForResolver);
         RebuildBuilder();
 
         foreach (DocumentTab tab in Tabs)
@@ -861,6 +1139,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         RefreshFindings();
+        RefreshSettledChoices();
         RebuildGraphIfShown();
 
         Status = persisted
@@ -870,36 +1149,186 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
+    /// The last few things the shell said, in full.
+    /// <para>
+    /// The status bar is one line with a character ellipsis on it, and it is the only
+    /// place a failure is ever reported. A long export error was therefore trimmed to
+    /// something unactionable and then replaced by the next message — so the panel keeps
+    /// what was said, untrimmed and selectable, and an exception's full text goes here
+    /// even when only its first line goes to the bar.
+    /// </para>
+    /// </summary>
+    public ObservableCollection<string> StatusLog { get; } = [];
+
+    /// <summary>How many messages the panel keeps.</summary>
+    public const int StatusLogLimit = 50;
+
+    /// <summary>Whether the status panel is open.</summary>
+    [ObservableProperty]
+    private bool _isStatusLogVisible;
+
+    /// <summary>Opens or closes the status panel.</summary>
+    [RelayCommand]
+    public void ToggleStatusLog() => IsStatusLogVisible = !IsStatusLogVisible;
+
+    /// <summary>The whole log as one block of text, for the Copy button.</summary>
+    public string StatusLogText => string.Join(Environment.NewLine, StatusLog);
+
+    /// <summary>
+    /// Records detail the status bar has no room for — an exception's full text, a stack
+    /// trace — without putting it on the one line a reader is meant to read.
+    /// </summary>
+    /// <param name="detail">The text to keep.</param>
+    public void LogDetail(string detail) => Record(detail);
+
+    partial void OnStatusChanged(string value) => Record(value);
+
+    private void Record(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        StatusLog.Add(message);
+
+        // Oldest first out. A panel that grew without bound would be a memory leak whose
+        // symptom is a scrollbar nobody reaches the top of.
+        while (StatusLog.Count > StatusLogLimit)
+        {
+            StatusLog.RemoveAt(0);
+        }
+    }
+
+    /// <summary>
+    /// The rewrite waiting for the reader to say yes, or null when none is.
+    /// </summary>
+    [ObservableProperty]
+    private PendingWrite? _pendingWrite;
+
+    /// <summary>
+    /// Works out what "fix all safe" would change and holds it, rather than doing it.
+    /// <para>
+    /// The plan comes from the same planner the CLI emits patches with, so what the card
+    /// lists is exactly what the write will do.
+    /// </para>
+    /// </summary>
+    public void ProposeFixAllSafe()
+    {
+        PatchSet plan = VaultRepair.Plan(Findings, ReadContent, RepairPolicy.Safe);
+
+        if (plan.IsEmpty)
+        {
+            Status = "Nothing here has a single canonical rewrite.";
+            PendingWrite = null;
+
+            return;
+        }
+
+        PendingWrite = new PendingWrite(
+            "Fix all safe",
+            [.. plan.Patches.Select(p => new PendingWriteFile(p.RelativePath, p.LinkCount))],
+            FixAllSafe);
+    }
+
+    /// <summary>
+    /// Works out what normalizing every link would change and holds it, rather than doing
+    /// it. The dry run is the same pass as the write with nothing written, so the count on
+    /// the card is the count the write produces.
+    /// </summary>
+    /// <param name="form">Which canonical form to rewrite to.</param>
+    public void ProposeNormalizeVault(LinkForm form = LinkForm.VaultRelative)
+    {
+        if (_vault is null || _graph is null)
+        {
+            return;
+        }
+
+        var files = new List<PendingWriteFile>();
+
+        foreach (VaultDocument document in _vault.Documents.Where(d => d.IsMarkdown))
+        {
+            if (ReadContent(document) is not { } content)
+            {
+                continue;
+            }
+
+            NormalizeResult result = MarkdownNormalizer.Normalize(
+                content, document, _graph.OutboundFrom(document), form);
+
+            if (result.Rewritten > 0)
+            {
+                files.Add(new PendingWriteFile(document.RelativePath, result.Rewritten));
+            }
+        }
+
+        if (files.Count == 0)
+        {
+            Status = "Every link in this vault is already in its canonical form.";
+            PendingWrite = null;
+
+            return;
+        }
+
+        PendingWrite = new PendingWrite(
+            "Normalize links in place",
+            [.. files.OrderBy(f => f.Path, StringComparer.Ordinal)],
+            () => NormalizeVault(form));
+    }
+
+    /// <summary>Performs the proposed write.</summary>
+    public int ConfirmPendingWrite()
+    {
+        if (PendingWrite is not { } pending)
+        {
+            return 0;
+        }
+
+        // Cleared before the write rather than after: the write rescans, which rebuilds
+        // the findings the plan was made from, and a card still on screen would then be
+        // describing a vault that no longer exists.
+        PendingWrite = null;
+
+        return pending.Apply();
+    }
+
+    /// <summary>Abandons the proposed write. Nothing was touched.</summary>
+    public void CancelPendingWrite()
+    {
+        if (PendingWrite is { } pending)
+        {
+            PendingWrite = null;
+            Status = $"{pending.Title} cancelled. No file was changed.";
+        }
+    }
+
+    /// <summary>
     /// Applies every safe fix — the links that resolved through steps 4 to 8 and have
     /// exactly one canonical form — and returns how many files were rewritten.
     /// </summary>
     public int FixAllSafe()
     {
-        var byDocument = LinkDoctor.SafeToFix(Findings)
-            .GroupBy(f => f.Document.RelativePath, StringComparer.Ordinal);
+        if (_vault is null)
+        {
+            return 0;
+        }
 
+        // Planned by the same code the CLI plans with, so "safe" cannot come to mean two
+        // things. What is different here is that the plan is then applied.
+        PatchSet plan = VaultRepair.Plan(Findings, ReadContent, RepairPolicy.Safe);
         int written = 0;
 
-        foreach (IGrouping<string, Finding> group in byDocument)
+        foreach (FilePatch patch in plan.Patches)
         {
-            VaultDocument document = group.First().Document;
-            string? content = ReadContent(document);
-
-            if (content is null)
+            if (_vault.Index.ByRelativePath(patch.RelativePath).FirstOrDefault() is not { } document
+                || ReadContent(document) is not { } content)
             {
                 continue;
             }
 
-            // Later lines first, and later columns first within a line: rewriting from
-            // the bottom up keeps every remaining finding's line number valid, and from
-            // the right keeps every remaining finding's column valid. A canonical target
-            // is rarely the same length as what it replaces, so two links on one line
-            // would otherwise shift each other.
-            foreach (Finding finding in group
-                .OrderByDescending(f => f.Line)
-                .ThenByDescending(f => f.Resolution?.Link.Column ?? 0))
+            foreach (Hunk hunk in patch.Hunks.OrderByDescending(h => h.Line))
             {
-                content = LinkDoctor.ApplyRewrite(content, finding) ?? content;
+                content = ReplaceLine(content, hunk);
             }
 
             if (WriteAtomically(document.AbsolutePath, content))
@@ -914,6 +1343,29 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         return written;
+    }
+
+    /// <summary>
+    /// Puts one planned line back into a file, when the file still says what the plan was
+    /// made against. A line that has moved or changed since is left alone: the plan was
+    /// computed a moment ago, but "a moment ago" is long enough for a generator to have
+    /// rewritten the page underneath it.
+    /// </summary>
+    private static string ReplaceLine(string content, Hunk hunk)
+    {
+        bool crlf = content.Contains("\r\n", StringComparison.Ordinal);
+        string[] lines = content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        int index = hunk.Line - 1;
+
+        if (index < 0 || index >= lines.Length
+            || !string.Equals(lines[index], hunk.Before, StringComparison.Ordinal))
+        {
+            return content;
+        }
+
+        lines[index] = hunk.After;
+
+        return string.Join(crlf ? "\r\n" : "\n", lines);
     }
 
     /// <summary>Shows or hides the navigation rail.</summary>
@@ -1015,6 +1467,131 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private static IReadOnlyList<string> Split(string value) =>
         [.. value.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
+    /// <summary>Rereads the settled ambiguities into the reviewable list.</summary>
+    public void RefreshSettledChoices()
+    {
+        SettledChoices.Clear();
+
+        foreach (SettledChoice choice in _state.Choices.All)
+        {
+            SettledChoices.Add(choice);
+        }
+
+        OnPropertyChanged(nameof(HasSettledChoices));
+        OnPropertyChanged(nameof(SettledSummary));
+    }
+
+    /// <summary>True when somebody has settled at least one ambiguity in this vault.</summary>
+    public bool HasSettledChoices => SettledChoices.Count > 0;
+
+    /// <summary>The heading over the settled list.</summary>
+    public string SettledSummary => SettledChoices.Count == 1
+        ? "1 settled link"
+        : $"{SettledChoices.Count} settled links";
+
+    /// <summary>
+    /// Undoes one settled ambiguity, putting the link back where the chain would leave it.
+    /// </summary>
+    /// <param name="choice">The decision to revoke.</param>
+    public void Revoke(SettledChoice choice)
+    {
+        if (_vault is null)
+        {
+            return;
+        }
+
+        bool persisted = _state.Choices.Forget(choice);
+
+        // The same rebuild a settled link triggers, for the same reason: every downstream
+        // answer was computed with this decision in it.
+        _graph = LinkGraph.Build(_vault, _state.Choices.ForResolver);
+        RebuildBuilder();
+
+        foreach (DocumentTab tab in Tabs)
+        {
+            tab.Rendered = _builder!.Build(tab.Document);
+        }
+
+        RefreshFindings();
+        RefreshSettledChoices();
+        RebuildGraphIfShown();
+
+        Status = persisted
+            ? $"\"{choice.RawTarget}\" is ambiguous again."
+            : $"\"{choice.RawTarget}\" is ambiguous again until this tab is closed.";
+    }
+
+    /// <summary>Lists the pages a tag names, including every tag nested under it.</summary>
+    /// <param name="tag">The selected node, or null to clear the list.</param>
+    public void SelectTag(TagNode? tag)
+    {
+        TagDocuments.Clear();
+
+        if (tag is null)
+        {
+            SelectedTag = string.Empty;
+            TagSummary = string.Empty;
+            return;
+        }
+
+        foreach (VaultDocument document in tag.AllDocuments)
+        {
+            TagDocuments.Add(document);
+        }
+
+        SelectedTag = tag.FullTag;
+
+        TagSummary = TagDocuments.Count == 1
+            ? $"1 PAGE TAGGED {tag.FullTag.ToUpperInvariant()}"
+            : $"{TagDocuments.Count} PAGES TAGGED {tag.FullTag.ToUpperInvariant()}";
+    }
+
+    /// <summary>Selects a tag by name, opening the rail if it is closed.</summary>
+    /// <param name="tag">The tag as written, with or without its leading hash.</param>
+    /// <returns>True when the vault has that tag.</returns>
+    public bool SelectTagNamed(string tag)
+    {
+        string wanted = tag.Trim().Trim('#', '/');
+
+        if (wanted.Length == 0 || Find(Tags) is not { } node)
+        {
+            return false;
+        }
+
+        IsLeftPanelVisible = true;
+        SelectTag(node);
+        TagSelected?.Invoke(this, node);
+
+        return true;
+
+        TagNode? Find(IEnumerable<TagNode> nodes)
+        {
+            foreach (TagNode candidate in nodes)
+            {
+                if (string.Equals(candidate.FullTag, wanted, StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+
+                if (Find(candidate.Children) is { } nested)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>Hands the selected tag to the search box, as the query that means the same thing.</summary>
+    public void SearchSelectedTag()
+    {
+        if (SelectedTag is { Length: > 0 } tag)
+        {
+            SearchQuery = $"tag:{tag}";
+        }
+    }
 
     /// <summary>Runs the current search query.</summary>
     public void RunSearch()
@@ -1133,6 +1710,9 @@ public sealed partial class ShellViewModel : ObservableObject
             Mentions.Add(mention);
         }
 
+        OnPropertyChanged(nameof(HasNoBacklinks));
+        OnPropertyChanged(nameof(HasNoMentions));
+
         int broken = rendered.BrokenLinks.Count();
         int ambiguous = rendered.AmbiguousLinks.Count();
 
@@ -1174,17 +1754,20 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         PaletteResults.Clear();
 
-        if (_vault is null)
-        {
-            return;
-        }
-
         string query = PaletteQuery.Trim();
 
         foreach (PaletteEntry action in Actions().Where(
             a => query.Length == 0 || a.Title.Contains(query, StringComparison.OrdinalIgnoreCase)))
         {
             PaletteResults.Add(action);
+        }
+
+        // With no vault open there are no pages and no headings to offer, but the actions
+        // above still are — reopening a recent vault is exactly what a palette is for at
+        // the moment the wrong vault, or none, is in front of the reader.
+        if (_vault is null)
+        {
+            return;
         }
 
         IEnumerable<VaultDocument> documents = _vault.Documents.Where(d => d.IsMarkdown);
@@ -1240,23 +1823,51 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private IEnumerable<PaletteEntry> Actions()
     {
-        yield return new PaletteEntry("Graph view", "Ctrl+G", () =>
+        // Vault-scoped commands are hidden when there is no vault: a palette offering to
+        // edit a page that is not open is a list of things that will not happen.
+        if (HasVault)
         {
-            IsPaletteOpen = false;
-            ToggleGraph();
-        });
+            yield return new PaletteEntry("Graph view", "Ctrl+G", () =>
+            {
+                IsPaletteOpen = false;
+                ToggleGraph();
+            });
 
-        yield return new PaletteEntry("Edit this page", "Ctrl+E", () =>
-        {
-            IsPaletteOpen = false;
-            ToggleEdit();
-        });
+            yield return new PaletteEntry("Edit this page", "Ctrl+E", () =>
+            {
+                IsPaletteOpen = false;
+                ToggleEdit();
+            });
 
-        yield return new PaletteEntry("Normalize links in the vault", "rewrites every link to its canonical target", () =>
+            yield return new PaletteEntry("Find in this page", "Ctrl+F", () =>
+            {
+                IsPaletteOpen = false;
+                FindRequested?.Invoke(this, EventArgs.Empty);
+            });
+
+            yield return new PaletteEntry(
+                "Normalize links in the vault",
+                "rewrites every link to its canonical target",
+                () =>
+                {
+                    IsPaletteOpen = false;
+                    IsLeftPanelVisible = true;
+                    ProposeNormalizeVault();
+                });
+        }
+
+        // Vault-scoped commands stay above; this is the one that is useful precisely when
+        // the vault in front of you is the wrong one.
+        foreach (RecentVault recent in RecentVaults.Where(r => r.Exists).Take(3))
         {
-            IsPaletteOpen = false;
-            NormalizeVault();
-        });
+            RecentVault captured = recent;
+
+            yield return new PaletteEntry($"Open {captured.Name}", captured.Path, () =>
+            {
+                IsPaletteOpen = false;
+                _ = OpenRecentAsync(captured);
+            });
+        }
 
         if (UpdateService is { IsInstalled: true })
         {

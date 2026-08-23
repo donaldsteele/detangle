@@ -19,6 +19,7 @@ This folder is also the app's built-in help: open it in Detangle and it reads as
 - [[diagrams]] — Mermaid and DBML, rendered offline
 - [[search]] — the query syntax
 - [[link-doctor]] — every broken link in one list, and the fixes that are safe
+- [[regeneration]] — marking a baseline, and failing a pipeline only when links got worse
 - [[graph]] — the graph view and what its shapes mean
 - [[editing-and-export]] — the split editor, atomic saves, and the four export shapes
 - [[keyboard]] — every shortcut

@@ -61,6 +61,29 @@ When a rule matches more than one file, Detangle picks the shortest path, then
 alphabetical order, and marks the link ambiguous. Every candidate is listed, and choosing
 one is remembered for that vault.
 
+### Where the decision lives
+
+Every rung above is a rule. This one is a person, and it is the only part of the
+resolution the vault cannot re-derive — so it travels with the vault, in
+`.detangle-choices` at the root:
+
+```
+wiki/concepts | Transformer -> wiki/entities/transformer.md  # settled 2026-08-22, was ambiguous between 3
+```
+
+One line per decision, sorted, with the reason as a comment. It is a text file rather than
+JSON on purpose: this is a file people read in a pull request, and "why does this link mean
+that page" should be answerable from the diff. Commit it, and everyone who checks the wiki
+out — and `detangle-lint`, and the static site export — resolves that link the way you
+decided rather than the way the chain would have guessed.
+
+To change your mind, edit or delete the line; or open the **Link Doctor** panel, where
+**settled links** lists every decision with a **Revoke** beside it.
+
+`detangle-lint --choices <path>` reads a different file, for a pipeline that keeps its
+decisions somewhere else. In the browser demo there is no file: a decision made there lasts
+as long as the tab, and the app says so rather than claiming a save.
+
 ## Anchors
 
 A fragment is matched against the raw heading text first (case-insensitively, which is the

@@ -37,6 +37,11 @@ internal static class Program
         DetangleApp.StartupVault = VaultPath;
         DetangleApp.ThemeOverride = true;
 
+        // A tab has no file manager and nothing to drag a folder from, and its filesystem
+        // goes away when it closes. Saying so once here is what keeps the shell from
+        // offering commands that would quietly do nothing.
+        DetangleApp.Capabilities = HeadCapabilities.Browser;
+
         // The host page turns "?page=wiki/schema" into an argument, and "?selftest=1" into
         // the flag below.
         string[] pages = args.Where(argument => argument != SelfTestFlag).ToArray();

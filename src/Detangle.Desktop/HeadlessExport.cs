@@ -1,3 +1,4 @@
+using Detangle.Core.Linking;
 using Detangle.Core.Vault;
 using Detangle.Rendering;
 using Detangle.Rendering.Diagrams;
@@ -55,7 +56,11 @@ internal static class HeadlessExport
                 {
                     DiagramRenderer = new MermaiderDiagramRenderer(),
                     DiagramTheme = DiagramTheme.Dark,
-                });
+                },
+                // The settled ambiguities travel with the vault, so a published site
+                // resolves the links the way the person who settled them decided, rather
+                // than the way the chain would have guessed on its own.
+                rememberedChoices: ChoiceStore.Open(vault.RootPath).ForResolver);
 
             ExportReport report = SiteExporter.ExportSite(
                 vault,

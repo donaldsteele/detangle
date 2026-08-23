@@ -4,10 +4,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Detangle.Core.Graph;
 using Detangle.Core.Vault;
@@ -27,6 +30,15 @@ namespace Detangle.App;
 /// </summary>
 public partial class ShellView : UserControl
 {
+    /// <summary>Where the search tab sits in the left rail, for handing it a query.</summary>
+    private const int SearchTabIndex = 1;
+
+    /// <summary>Where the Link Doctor sits, for the ledger's page filter.</summary>
+    private const int DoctorTabIndex = 2;
+
+    /// <summary>Where the tag tab sits, for a chip in the page that selected a tag.</summary>
+    private const int TagTabIndex = 3;
+
     private DocumentRenderer _renderer;
     private GraphCanvas _graph;
     private string? _renderedPath;
@@ -46,12 +58,21 @@ public partial class ShellView : UserControl
         {
             if (args.Key == Key.Enter)
             {
-                ViewModel?.OpenVault(VaultPathBox.Text ?? string.Empty);
+                _ = Guarded(() => ViewModel?.OpenVaultAsync(VaultPathBox.Text ?? string.Empty)
+                    ?? Task.CompletedTask);
+
                 args.Handled = true;
             }
         };
         NavigationTree.SelectionChanged += OnNavigationSelectionChanged;
         TagTree.SelectionChanged += OnTagSelectionChanged;
+        TagDocumentList.SelectionChanged += OnTagDocumentSelectionChanged;
+
+        TagSearchButton.Click += (_, _) =>
+        {
+            ViewModel?.SearchSelectedTag();
+            LeftRail.SelectedIndex = SearchTabIndex;
+        };
         OutlineList.SelectionChanged += OnOutlineSelectionChanged;
         BacklinkList.SelectionChanged += OnBacklinkSelectionChanged;
         MentionList.SelectionChanged += OnMentionSelectionChanged;
@@ -63,11 +84,37 @@ public partial class ShellView : UserControl
         IgnoreFindingButton.Click += OnIgnoreFindingClick;
         ShowIgnoredButton.Click += (_, _) => ViewModel?.ShowIgnored();
         MarkBaselineButton.Click += (_, _) => ViewModel?.MarkBaseline();
+        ConfirmWriteButton.Click += OnConfirmWriteClick;
+        CancelWriteButton.Click += (_, _) => ViewModel?.CancelPendingWrite();
+
+        CopyStatusLogButton.Click += (_, _) =>
+        {
+            if (ViewModel is { } viewModel)
+            {
+                CopyToClipboard(viewModel.StatusLogText);
+            }
+        };
+        ClearFindingFilterButton.Click += (_, _) => ViewModel?.FilterFindings(null);
+
+        // The strip has always known how this page's links resolved; clicking a band asks
+        // the Doctor about exactly those.
+        Ledger.SegmentClicked += (_, confidence) =>
+        {
+            if (ViewModel?.ActiveTab is { } tab)
+            {
+                ViewModel.IsLeftPanelVisible = true;
+                LeftRail.SelectedIndex = DoctorTabIndex;
+                ViewModel.FilterFindings(tab.Document.RelativePath, confidence);
+            }
+        };
         _graph = CreateGraphCanvas(isDark: ActualThemeVariant == ThemeVariant.Dark);
         GraphHost.Children.Add(_graph);
         GraphFitButton.Click += (_, _) => _graph.FitToView();
 
+        WireMenus();
         WireEditing();
+        WireFind();
+        WireDragAndDrop();
 
         DataContextChanged += OnDataContextChanged;
     }
@@ -125,6 +172,11 @@ public partial class ShellView : UserControl
             if (ViewModel is { } viewModel)
             {
                 viewModel.Status = message;
+
+                // The bar gets one line and trims it; the panel gets the whole thing,
+                // stack trace included, because that is the part worth pasting into an
+                // issue and the part the bar has never been able to show.
+                viewModel.LogDetail(ex.ToString());
             }
 
             // The console is the only diagnostic surface the browser build has, and this
@@ -158,7 +210,7 @@ public partial class ShellView : UserControl
         {
             if (VaultPathBox.Text is { Length: > 0 } typed)
             {
-                viewModel.OpenVault(typed);
+                await viewModel.OpenVaultAsync(typed).ConfigureAwait(true);
 
                 return;
             }
@@ -199,7 +251,7 @@ public partial class ShellView : UserControl
 
         if (folder.TryGetLocalPath() is { Length: > 0 } path)
         {
-            viewModel.OpenVault(path);
+            await viewModel.OpenVaultAsync(path).ConfigureAwait(true);
 
             return;
         }
@@ -292,6 +344,8 @@ public partial class ShellView : UserControl
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.AnchorRequested += (_, anchor) => ScrollToAnchor(anchor);
+        viewModel.TagSelected += OnTagSelectedElsewhere;
+        viewModel.FindRequested += (_, _) => OpenFind();
 
         // The shell can arrive already set to a palette — the WASM demo starts dark —
         // and that happens before there is a view to hear the change.
@@ -366,8 +420,9 @@ public partial class ShellView : UserControl
     }
 
     /// <summary>
-    /// Shows what the pointer is over. The graph's own status line is the only place a
-    /// reader learns that a node is a page nothing links to, or one that does not exist.
+    /// Shows what the pointer is over. It is the only place a reader learns that a node is
+    /// a page nothing links to, or one that does not exist — and it belongs to the graph
+    /// pane, not to the status bar, which has a message of its own to keep showing.
     /// </summary>
     private void OnGraphNodeHovered(object? sender, GraphNode? node)
     {
@@ -376,9 +431,9 @@ public partial class ShellView : UserControl
             return;
         }
 
-        viewModel.Status = node switch
+        viewModel.GraphHover = node switch
         {
-            null => viewModel.GraphSummary,
+            null => string.Empty,
             { Kind: GraphNodeKind.MissingTarget } => $"{node.Label} · no such file · {node.InboundCount} links here",
             { Kind: GraphNodeKind.Cluster } => $"{node.Label} · {node.Weight:N0} pages · click to open the folder",
             _ => $"{node.Id} · {node.InboundCount} in · {node.OutboundCount} out"
@@ -409,6 +464,8 @@ public partial class ShellView : UserControl
         var renderer = new DocumentRenderer(palette);
 
         renderer.LinkActivated += OnLinkActivated;
+        renderer.TagActivated += (_, tag) => ViewModel?.SelectTagNamed(tag);
+        renderer.CopyRequested = CopyToClipboard;
         renderer.PreviewFactory = BuildPreview;
         renderer.ChoiceMade = (resolution, chosen) => ViewModel?.Settle(resolution, chosen);
 
@@ -554,9 +611,214 @@ public partial class ShellView : UserControl
 
     private void OnTagSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (TagTree.SelectedItem is TagNode { Documents.Count: > 0 } tag)
+        // Listing what the tag names, rather than opening one of them: the tree's own
+        // count is the promise, and picking one page out of fourteen is not keeping it.
+        ViewModel?.SelectTag(TagTree.SelectedItem as TagNode);
+    }
+
+    /// <summary>
+    /// Scrolls to the link a finding is about and pulses it once.
+    /// <para>
+    /// Nothing is invented when the line no longer matches: a finding from before a
+    /// generation run points at a line that has moved, and quietly landing at the top of
+    /// the page would be exactly the sort of silent guess this product exists to remove.
+    /// It says so instead.
+    /// </para>
+    /// </summary>
+    /// <param name="line">The 1-based line the finding names.</param>
+    /// <returns>True when the link was found and shown.</returns>
+    private bool RevealLink(int line)
+    {
+        if (line <= 0 || DocumentHost.Content is not Control content)
         {
-            ViewModel?.Open(tag.Documents[0]);
+            return false;
+        }
+
+        Control? link = content.GetLogicalDescendants()
+            .OfType<Control>()
+            .Where(c => c.Tag is LinkOrigin origin && origin.Line == line)
+            .OrderBy(c => (c.Tag as LinkOrigin)!.Column)
+            .FirstOrDefault();
+
+        if (link is null || link.TranslatePoint(default, content) is not { } point)
+        {
+            return false;
+        }
+
+        // A third of the way down rather than at the very top: a link with no context
+        // above it reads as the start of the page rather than as a place in it.
+        DocumentScroller.Offset = new Vector(
+            0, Math.Max(0, point.Y - (DocumentScroller.Bounds.Height / 3)));
+
+        Pulse(link);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Marks a control once and lets the mark fade. No new colour: the selection brush is
+    /// what "this is the thing you asked for" already means everywhere else in the shell.
+    /// </summary>
+    private void Pulse(Control control)
+    {
+        if (control is not Button button || Resource("Selection") is not { } brush)
+        {
+            return;
+        }
+
+        IBrush? original = button.Background;
+
+        button.Background = brush;
+
+        DispatcherTimer.RunOnce(
+            () => button.Background = original,
+            TimeSpan.FromMilliseconds(900));
+    }
+
+    private void OnRecentVaultClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: RecentVault vault } && ViewModel is { } viewModel)
+        {
+            _ = Guarded(() => viewModel.OpenRecentAsync(vault));
+        }
+    }
+
+    /// <summary>
+    /// Lets a folder dragged onto the window be opened as a vault.
+    /// <para>
+    /// Gated on the head rather than tried and caught: a browser tab has no folder on a
+    /// disk to be dropped, so it never offers the highlight in the first place.
+    /// </para>
+    /// </summary>
+    private void WireDragAndDrop()
+    {
+        DragDrop.SetAllowDrop(this, true);
+
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, (_, _) => DropTarget.IsVisible = false);
+        AddHandler(DragDrop.DropEvent, OnDrop);
+
+        void OnDragOver(object? sender, DragEventArgs args)
+        {
+            bool accepts = ViewModel?.Capabilities.CanDropFolders == true && PathIn(args) is not null;
+
+            args.DragEffects = accepts ? DragDropEffects.Copy : DragDropEffects.None;
+            DropTarget.IsVisible = accepts;
+            args.Handled = true;
+        }
+
+        void OnDrop(object? sender, DragEventArgs args)
+        {
+            DropTarget.IsVisible = false;
+
+            if (ViewModel is not { } viewModel || PathIn(args) is not { } path)
+            {
+                return;
+            }
+
+            args.Handled = true;
+
+            // A dropped page opens its folder and then that page, which is what somebody
+            // dragging one file out of a wiki meant by it.
+            string? page = File.Exists(path) ? Path.GetFileName(path) : null;
+            string folder = page is null ? path : Path.GetDirectoryName(path) ?? path;
+
+            _ = Guarded(async () =>
+            {
+                await viewModel.OpenVaultAsync(folder).ConfigureAwait(true);
+
+                if (page is not null)
+                {
+                    viewModel.OpenPath(page);
+                }
+            });
+        }
+
+        static string? PathIn(DragEventArgs args)
+        {
+            if (args.DataTransfer?.TryGetValue(DataFormat.File) is not { } item
+                || item.TryGetLocalPath() is not { Length: > 0 } path)
+            {
+                return null;
+            }
+
+            // A folder, or a markdown file inside one. Anything else is a drop this
+            // application has no answer for, and refusing it in the highlight is kinder
+            // than accepting it and reporting a failure afterwards.
+            return Directory.Exists(path)
+                || (File.Exists(path) && Detangle.Core.Linking.LinkNormalizer.HasMarkdownExtension(path))
+                    ? path
+                    : null;
+        }
+    }
+
+    private void OnRevokeChoiceClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: Detangle.Core.Linking.SettledChoice choice })
+        {
+            ViewModel?.Revoke(choice);
+        }
+    }
+
+    private void OnTagDocumentSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (TagDocumentList.SelectedItem is VaultDocument document)
+        {
+            ViewModel?.Open(document);
+        }
+    }
+
+    private void OnTagSelectedElsewhere(object? sender, TagNode tag)
+    {
+        // A chip in the page selected the tag; the tree follows so the rail is not showing
+        // a list whose heading names a tag nothing in the tree appears to have picked.
+        LeftRail.SelectedIndex = TagTabIndex;
+
+        var ancestors = new List<TagNode>();
+
+        if (!Path(ViewModel?.Tags ?? []))
+        {
+            return;
+        }
+
+        // Root first: a nested node has no container until its parent is expanded and the
+        // tree has laid out, so expanding from the bottom up would be reaching for
+        // containers that do not exist yet.
+        foreach (TagNode ancestor in ancestors)
+        {
+            if (TagTree.TreeContainerFromItem(ancestor) is not TreeViewItem container)
+            {
+                break;
+            }
+
+            container.IsExpanded = true;
+            TagTree.UpdateLayout();
+        }
+
+        TagTree.SelectedItem = tag;
+
+        // Only the ancestors of the selected tag: expanding the whole tree to reveal one
+        // node would leave the reader scrolling a rail they did not open.
+        bool Path(IEnumerable<TagNode> nodes)
+        {
+            foreach (TagNode node in nodes)
+            {
+                if (ReferenceEquals(node, tag))
+                {
+                    return true;
+                }
+
+                ancestors.Add(node);
+
+                if (Path(node.Children))
+                {
+                    return true;
+                }
+
+                ancestors.RemoveAt(ancestors.Count - 1);
+            }
+
+            return false;
         }
     }
 
@@ -645,6 +907,23 @@ public partial class ShellView : UserControl
             FindingBefore.Text = "- " + lines.Before.Trim();
             FindingAfter.Text = "+ " + lines.After.Trim();
         }
+
+        // After the page is open and laid out, not before: the control the finding points
+        // at does not exist until the render has happened.
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (finding.Line > 0 && !RevealLink(finding.Line))
+                {
+                    // The file changed since the scan, or this finding came from a stale
+                    // baseline. Saying so beats landing at the top of the page and letting
+                    // the reader assume the link is up there somewhere.
+                    viewModel.Status =
+                        $"{finding.Document.RelativePath} no longer has that link on line {finding.Line}; "
+                        + "rescan to refresh the findings.";
+                }
+            },
+            DispatcherPriority.Background);
     }
 
     /// <summary>The finding the tree has selected, or null when a group heading is.</summary>
@@ -674,16 +953,23 @@ public partial class ShellView : UserControl
         }
     }
 
-    private void OnFixAllClick(object? sender, RoutedEventArgs e)
-    {
-        int written = ViewModel?.FixAllSafe() ?? 0;
+    private void OnFixAllClick(object? sender, RoutedEventArgs e) => ViewModel?.ProposeFixAllSafe();
 
-        if (ViewModel is { } viewModel)
+    private void OnConfirmWriteClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { PendingWrite: { } pending } viewModel)
         {
-            viewModel.Status = written == 0
-                ? "Nothing to fix: every link is already canonical."
-                : $"Rewrote links in {written} file{(written == 1 ? string.Empty : "s")}.";
+            return;
         }
+
+        string title = pending.Title;
+        int written = viewModel.ConfirmPendingWrite();
+
+        // The writers set their own status while they run; this replaces it with the one
+        // that names what the reader actually agreed to.
+        viewModel.Status = written == 0
+            ? $"{title} changed nothing: the files had moved on since the list was made."
+            : $"{title}: rewrote {written} file{(written == 1 ? string.Empty : "s")}.";
     }
 
     private void OnCloseTabClick(object? sender, RoutedEventArgs e)
@@ -732,6 +1018,11 @@ public partial class ShellView : UserControl
                 e.Handled = true;
                 break;
 
+            case Key.F when control:
+                OpenFind();
+                e.Handled = true;
+                break;
+
             case Key.K when control:
             case Key.P when control && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
                 ViewModel?.TogglePaletteCommand.Execute(null);
@@ -740,6 +1031,23 @@ public partial class ShellView : UserControl
 
             case Key.Escape when ViewModel?.IsPaletteOpen == true:
                 ViewModel.TogglePaletteCommand.Execute(null);
+                e.Handled = true;
+                break;
+
+            case Key.Escape when FindBar.IsVisible:
+                CloseFind();
+                e.Handled = true;
+                break;
+
+            // Escape is the way out of a confirm everywhere else in computing, and this
+            // one is guarding the only irreversible thing the application does.
+            case Key.Escape when ViewModel?.PendingWrite is not null:
+                ViewModel.CancelPendingWrite();
+                e.Handled = true;
+                break;
+
+            case Key.Escape when ViewModel?.IsStatusLogVisible == true:
+                ViewModel.ToggleStatusLog();
                 e.Handled = true;
                 break;
 
@@ -760,8 +1068,16 @@ public partial class ShellView : UserControl
         }
     }
 
-    private static void OpenExternal(string target)
+    private void OpenExternal(string target)
     {
+        // Asked rather than tried: a head that cannot hand a target to a platform says so
+        // once, at startup, and the commands that would need it are never offered. What is
+        // left here is a target the platform accepted and then had no handler for.
+        if (ViewModel?.Capabilities.CanOpenExternalLinks != true)
+        {
+            return;
+        }
+
         try
         {
             Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
@@ -770,6 +1086,102 @@ public partial class ShellView : UserControl
             or PlatformNotSupportedException)
         {
             // A desktop with no handler for this target is not worth interrupting reading.
+        }
+    }
+
+    /// <summary>The shell's view model, for the menu factory.</summary>
+    internal ShellViewModel? ViewModelForMenus => ViewModel;
+
+    /// <summary>
+    /// Attaches the right-click menus. Every list of pages gets the same six commands, so
+    /// "copy this as a wikilink" means the same thing in the file tree, in search results,
+    /// in backlinks and in the tag list.
+    /// </summary>
+    private void WireMenus()
+    {
+        ItemMenus.Wire(NavigationTree, this, () => NavigationTree.SelectedItem);
+        ItemMenus.Wire(SearchList, this, () => SearchList.SelectedItem);
+        ItemMenus.Wire(BacklinkList, this, () => BacklinkList.SelectedItem);
+        ItemMenus.Wire(MentionList, this, () => MentionList.SelectedItem);
+        ItemMenus.Wire(TagDocumentList, this, () => TagDocumentList.SelectedItem);
+
+        ItemMenus.Wire(
+            TabStrip,
+            this,
+            () => TabStrip.SelectedItem,
+            item => ViewModel is { } viewModel
+                ? ItemMenus.TabItems(item as DocumentTab, viewModel, this)
+                : []);
+
+        ItemMenus.Wire(
+            FindingTree,
+            this,
+            () => FindingTree.SelectedItem as Detangle.Core.Diagnostics.Finding,
+            item => ViewModel is { } viewModel
+                ? ItemMenus.FindingItems(item as Detangle.Core.Diagnostics.Finding, viewModel, this)
+                : []);
+    }
+
+    /// <summary>Puts text on the clipboard, and says so where the reader is looking.</summary>
+    internal void CopyToClipboard(string text)
+    {
+        if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard)
+        {
+            return;
+        }
+
+        // Fire and forget with the failure reported: nothing downstream waits on a copy,
+        // and a clipboard the platform refused is worth one line rather than a dialog.
+        _ = CopyAsync();
+
+        async Task CopyAsync()
+        {
+            try
+            {
+                await clipboard.SetValueAsync(DataFormat.Text, text).ConfigureAwait(true);
+
+                if (ViewModel is { } viewModel)
+                {
+                    viewModel.Status = $"Copied {text}";
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                if (ViewModel is { } viewModel)
+                {
+                    viewModel.Status = $"The clipboard would not take that: {ex.Message}";
+                }
+            }
+        }
+    }
+
+    /// <summary>Shows a file in the platform's file manager, with the file selected.</summary>
+    internal void Reveal(string absolutePath)
+    {
+        if (ViewModel?.Capabilities.CanRevealInFileManager != true)
+        {
+            return;
+        }
+
+        try
+        {
+            // Selecting the file rather than opening its folder: the point of revealing a
+            // path is the file, and a folder of two hundred pages does not answer it.
+            ProcessStartInfo start = OperatingSystem.IsWindows()
+                ? new ProcessStartInfo("explorer.exe", $"/select,\"{absolutePath}\"")
+                : OperatingSystem.IsMacOS()
+                    ? new ProcessStartInfo("open", $"-R \"{absolutePath}\"")
+                    : new ProcessStartInfo("xdg-open", $"\"{Path.GetDirectoryName(absolutePath)}\"");
+
+            Process.Start(start);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException
+            or PlatformNotSupportedException or IOException)
+        {
+            if (ViewModel is { } viewModel)
+            {
+                viewModel.Status = $"That folder could not be shown: {ex.Message}";
+            }
         }
     }
 }

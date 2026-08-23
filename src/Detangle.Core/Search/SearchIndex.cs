@@ -186,9 +186,14 @@ public sealed class SearchIndex : IDisposable
 
                 case "tag":
                 case "tags":
-                    // Tags are stored space-delimited and nested tags match by prefix, so
-                    // "tag:llm" finds "llm/agents" too.
-                    conditions.Add($"(' ' || lower(documents.tags) || ' ') LIKE '% ' || lower({parameter}) || '%'");
+                    // Tags are stored space-delimited, and the browser's tree is a
+                    // hierarchy, so "tag:llm" means llm and everything under it — the tag
+                    // itself, or the tag followed by a separator. Matching a bare prefix
+                    // instead would make "tag:llm" claim "llm-ops" as a child it is not,
+                    // and the rail's count and the search's count would then disagree.
+                    conditions.Add(
+                        $"((' ' || lower(documents.tags) || ' ') LIKE '% ' || lower({parameter}) || ' %'"
+                        + $" OR (' ' || lower(documents.tags) || ' ') LIKE '% ' || lower({parameter}) || '/%')");
                     command.Parameters.AddWithValue(parameter, filter.Value);
                     break;
 

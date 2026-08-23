@@ -14,8 +14,54 @@ public sealed record TagNode(
     IReadOnlyList<VaultDocument> Documents,
     IReadOnlyList<TagNode> Children)
 {
+    private IReadOnlyList<VaultDocument>? _all;
+
     /// <summary>Documents on this tag and every tag under it.</summary>
-    public int TotalCount => Documents.Count + Children.Sum(c => c.TotalCount);
+    public int TotalCount => AllDocuments.Count;
+
+    /// <summary>
+    /// Every document on this tag or any tag under it, by title.
+    /// <para>
+    /// The tree is hierarchical, so selecting "llm" means "llm and everything below it" —
+    /// the same rule <c>tag:llm</c> follows in search. A count in the rail and a count in
+    /// the search box that disagreed would be a subtler version of the problem this list
+    /// exists to fix, so both sides read the tag the same way.
+    /// </para>
+    /// <para>
+    /// Computed once. Every row of the tag tree binds the count, and a tree of two hundred
+    /// tags walking its own subtree on every measure is a rail that stutters while it
+    /// scrolls. The node is immutable, so the answer cannot go stale.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<VaultDocument> AllDocuments => _all ??= Gather();
+
+    private IReadOnlyList<VaultDocument> Gather()
+    {
+        // A document carrying both "llm" and "llm/agents" appears once. Reference
+        // identity is the right comparison: every document here came out of one scan.
+        var seen = new HashSet<VaultDocument>();
+        var all = new List<VaultDocument>();
+
+        Collect(this);
+
+        return [.. all.OrderBy(d => d.DisplayName, StringComparer.CurrentCultureIgnoreCase)];
+
+        void Collect(TagNode node)
+        {
+            foreach (VaultDocument document in node.Documents)
+            {
+                if (seen.Add(document))
+                {
+                    all.Add(document);
+                }
+            }
+
+            foreach (TagNode child in node.Children)
+            {
+                Collect(child);
+            }
+        }
+    }
 }
 
 /// <summary>

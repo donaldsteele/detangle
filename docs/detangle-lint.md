@@ -28,7 +28,16 @@ $ detangle-lint ./wiki --output findings.json
 | `--fail-on <severity>` | Exit 1 when any finding is this severe or worse: `error` (the default), `warning`, `info`, or `never` |
 | `--output`, `-o <path>` | Write the report to a file instead of standard output |
 | `--compact` | One line of JSON rather than an indented document |
+| `--mark` | Record the vault as it stands as the baseline, in `.detangle-baseline.json` at the vault root |
+| `--since` | Report what changed since the baseline, as a `delta` block |
+| `--fail-on-regression` | Exit 1 when a link broke or now needs a later rule than it did. Implies `--since` |
+| `--choices <path>` | Read [settled ambiguities](link-resolution.md) from this file rather than from `.detangle-choices` at the vault root |
+| `--emit-patch <path>` | Write the repair as a unified diff, or `-` for standard output |
+| `--patch-policy <what>` | `safeonly` (the default) or `all` |
 | `--help`, `-h` | The usage text |
+
+The last three are the [regeneration gate](regeneration.md), and for a wiki a generator
+rewrites wholesale they are the ones worth reaching for.
 
 Exit codes are `0` for a clean run, `1` for findings at or past the threshold, and `2`
 when the vault could not be read at all — a missing folder, a permission error, or a
@@ -95,6 +104,38 @@ trusting the shape of anything else.
 
 ## What it does not do
 
-It never writes to the vault. There is no `--fix`, and there will not be one: applying a
+It never rewrites your markdown. There is no `--fix`, and there will not be one: applying a
 rewrite is a decision that wants the before-and-after line in front of a person, which is
 what the [Link Doctor](link-doctor.md) panel is for. The CLI reports; the application acts.
+
+The one file it will write inside the vault is the baseline, and only when you ask for it
+with `--mark`. That file is a record of a decision, not a change to the wiki.
+
+## Emitting a repair
+
+`--emit-patch` is how a pipeline gets a fix without this command applying one:
+
+```
+$ detangle-lint wiki/ --emit-patch - | git apply
+$ detangle-lint wiki/ --emit-patch repair.diff --patch-policy all
+```
+
+The output is an ordinary unified diff, with one addition — each hunk names the rung that
+resolved the link:
+
+```diff
+--- a/wiki/index.md
++++ b/wiki/index.md
+@@ -12,1 +12,1 @@ resolved by NormalizedName (Attention Is All You Need)
+-See [[Attention Is All You Need]] for the original.
++See [[attention-is-all-you-need]] for the original.
+```
+
+`safeonly`, the default, plans only the links that resolved through rungs 4 to 8 and have
+exactly one canonical form — the same set the panel's **Fix all safe** applies, planned by
+the same code, so the two cannot come to mean different things. `all` adds the
+edit-distance guesses at broken links, which are a plan for a person to read rather than
+something to pipe into `git apply` unread.
+
+Anchors are not repaired yet, whatever the policy. A broken fragment's suggestion is a
+*heading*, and the rewriter replaces a link's target; repairing one is its own change.

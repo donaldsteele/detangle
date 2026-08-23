@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Detangle.Core.Diagnostics;
+using Detangle.Core.History;
 using Detangle.Lint;
 using Xunit;
 
@@ -158,6 +159,101 @@ public class LintCommandTests : IDisposable
         Assert.Equal("out.json", options.OutputPath);
     }
 
+    [Fact]
+    public void MarkingWritesTheBaselineWhereARepositoryWillSeeIt()
+    {
+        Assert.Equal(0, Run(mark: true, since: false, failOnRegression: false).Code);
+
+        // At the vault root, not in .detangle/, which the FAQ calls a cache the reader may
+        // delete. This is the one file a team commits.
+        Assert.True(File.Exists(Path.Combine(_root, BaselineStore.FileName)));
+        Assert.NotEmpty(BaselineStore.Load(_root).Links);
+    }
+
+    [Fact]
+    public void WithNoBaselineThereIsNoDeltaBlockRatherThanAnEmptyOne()
+    {
+        // "Nothing regressed" and "nothing was compared" are different answers.
+        Assert.False(Report().TryGetProperty("delta", out _));
+
+        JsonElement compared = JsonDocument.Parse(
+            Run(mark: false, since: true, failOnRegression: false).Report).RootElement;
+
+        Assert.True(compared.TryGetProperty("delta", out JsonElement delta));
+        Assert.False(delta.GetProperty("regressed").GetBoolean());
+    }
+
+    [Fact]
+    public void ALinkThatBreaksAfterTheBaselineIsAReportedRegression()
+    {
+        Run(mark: true, since: false, failOnRegression: false);
+
+        // The target goes away, so a link that resolved by an exact name now resolves to
+        // nothing: the regeneration failure this gate exists to catch.
+        File.Delete(Path.Combine(_root, "my-target.md"));
+
+        (int code, string report) = Run(mark: false, since: true, failOnRegression: true);
+
+        Assert.Equal(LintCommand.FoundProblems, code);
+
+        JsonElement delta = JsonDocument.Parse(report).RootElement.GetProperty("delta");
+
+        Assert.True(delta.GetProperty("regressed").GetBoolean());
+        Assert.Equal(2, delta.GetProperty("links").GetProperty("broke").GetInt32());
+
+        JsonElement regression = delta.GetProperty("regressions").EnumerateArray().First();
+
+        Assert.Equal("broke", regression.GetProperty("change").GetString());
+        Assert.Equal(string.Empty, regression.GetProperty("resolvedTo").GetString());
+    }
+
+    [Fact]
+    public void AnAlreadyBrokenVaultThatDidNotGetWorsePassesTheRegressionGate()
+    {
+        // This is the whole point of the gate. The fixture already has two broken links,
+        // so --fail-on error fails on every run and can never tell one run from another.
+        Run(mark: true, since: false, failOnRegression: false);
+
+        (int gated, _) = Run(mark: false, since: true, failOnRegression: true);
+        (int absolute, _) = Run(FindingSeverity.Error);
+
+        Assert.Equal(0, gated);
+        Assert.Equal(LintCommand.FoundProblems, absolute);
+    }
+
+    [Fact]
+    public void MarkingAndComparingInOneRunReportsTheRunBeingMarked()
+    {
+        Run(mark: true, since: false, failOnRegression: false);
+
+        File.WriteAllText(Path.Combine(_root, "extra.md"), "# Extra\n");
+
+        JsonElement delta = JsonDocument.Parse(
+                Run(mark: true, since: true, failOnRegression: false).Report)
+            .RootElement.GetProperty("delta");
+
+        // Compared against the baseline as it was, then overwritten — not compared against
+        // the state this very run just wrote, which would always be empty.
+        Assert.Equal(1, delta.GetProperty("pages").GetProperty("added").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("--mark", true, false, false)]
+    [InlineData("--since", false, true, false)]
+    [InlineData("--fail-on-regression", false, true, true)]
+    public void TheGateFlagsParse(string flag, bool mark, bool since, bool failOnRegression)
+    {
+        (LintOptions? options, string? error) = LintCommand.Parse([_root, flag]);
+
+        Assert.Null(error);
+        Assert.Equal(mark, options!.Mark);
+
+        // --fail-on-regression implies --since: there is nothing to fail on without a
+        // comparison, and making someone pass both would be a footgun with no upside.
+        Assert.Equal(since, options.Since);
+        Assert.Equal(failOnRegression, options.FailOnRegression);
+    }
+
     private JsonElement Report() => JsonDocument.Parse(Run(FindingSeverity.Error).Report).RootElement;
 
     private (int Code, string Report) Run(FindingSeverity? failOn)
@@ -166,6 +262,25 @@ public class LintCommandTests : IDisposable
 
         int code = LintCommand.Run(
             new LintOptions(_root, failOn, Compact: true, OutputPath: null),
+            output,
+            TextWriter.Null);
+
+        return (code, output.ToString());
+    }
+
+    private (int Code, string Report) Run(bool mark, bool since, bool failOnRegression)
+    {
+        var output = new StringWriter();
+
+        int code = LintCommand.Run(
+            new LintOptions(
+                _root,
+                FailOn: null,
+                Compact: true,
+                OutputPath: null,
+                Mark: mark,
+                Since: since,
+                FailOnRegression: failOnRegression),
             output,
             TextWriter.Null);
 

@@ -33,9 +33,16 @@ needs one.
 through 8 and have exactly one correct answer — to their canonical target. Ambiguous and
 broken links are never touched, because neither has one right answer.
 
+Nothing is written until you say so. The button works out the whole change and shows it:
+how many links in how many files, and every file it would touch, listed. Cancel is the
+default, and `Esc` takes it. That plan comes from the same code `detangle-lint
+--emit-patch` emits a diff from, so what the card lists is exactly what the write does.
+
 Rewrites are surgical: only the exact link on the recorded line is changed, and a file
 that no longer matches what the finding recorded is skipped rather than rewritten blind.
 Each file is written atomically.
+
+There is no undo. The list in front of you is the undo — read it before you agree to it.
 
 **Create the missing note** writes the page a broken link was pointing at, stubbed from the
 vault's own template if it has one, so the new file looks like the files around it.

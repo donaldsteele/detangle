@@ -22,6 +22,18 @@ namespace Detangle.Rendering.Controls;
 public sealed record LinkActivatedEventArgs(LinkResolution Resolution, string? ExternalUrl);
 
 /// <summary>
+/// Where in the source a rendered link came from, carried on the control that draws it.
+/// <para>
+/// A finding names a line and a column, and until this was here nothing connected that to
+/// anything on screen: selecting a broken link in the Link Doctor opened the page at the
+/// top and left the reader to find the link by eye.
+/// </para>
+/// </summary>
+/// <param name="Line">The 1-based line the link was written on.</param>
+/// <param name="Column">The 0-based column its target starts at.</param>
+public sealed record LinkOrigin(int Line, int Column);
+
+/// <summary>
 /// Turns a <see cref="RenderDocument"/> into an Avalonia control tree.
 /// <para>
 /// This class makes no editorial decisions — every question of meaning was settled in
@@ -61,6 +73,13 @@ public sealed class DocumentRenderer
     public event EventHandler<LinkActivatedEventArgs>? LinkActivated;
 
     /// <summary>
+    /// Raised when a tag chip is clicked, carrying the tag without its hash. A tag is not
+    /// a link — it names a set of pages rather than one — so it goes to whatever is
+    /// browsing tags rather than to the navigator.
+    /// </summary>
+    public event EventHandler<string>? TagActivated;
+
+    /// <summary>
     /// Builds the hover preview for a link, when one is available. The shell supplies
     /// this because previewing a page means rendering it, which needs the vault the
     /// renderer itself knows nothing about.
@@ -73,6 +92,13 @@ public sealed class DocumentRenderer
     /// vault, which the renderer knows nothing about (plan.md section 15.2).
     /// </summary>
     public Action<LinkResolution, VaultDocument>? ChoiceMade { get; set; }
+
+    /// <summary>
+    /// Puts text on the clipboard. Supplied by the shell for the same reason as the two
+    /// above: the clipboard belongs to a top-level window, and this class is handed a
+    /// theme and a document and nothing else.
+    /// </summary>
+    public Action<string>? CopyRequested { get; set; }
 
     /// <summary>Renders a document into a scrollable panel of blocks.</summary>
     public Control Render(RenderDocument document)
@@ -794,7 +820,7 @@ public sealed class DocumentRenderer
 
         if (frontmatter.Tags.Count > 0)
         {
-            AddChips("tags", frontmatter.Tags.Select(tag => Chip($"#{tag}")));
+            AddChips("tags", frontmatter.Tags.Select(TagChip));
         }
 
         if (frontmatter.Aliases.Count > 0)
@@ -893,7 +919,7 @@ public sealed class DocumentRenderer
                 break;
 
             case TagRun tag:
-                target.Add(new InlineUIContainer(Chip($"#{tag.Tag}")));
+                target.Add(new InlineUIContainer(TagChip(tag.Tag)));
                 break;
 
             case FootnoteReferenceRun footnote:
@@ -1012,9 +1038,29 @@ public sealed class DocumentRenderer
             BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
             Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+
+            // Where this link was written, so a finding about it can be shown rather than
+            // described. The same idiom a heading uses to carry its slug.
+            Tag = new LinkOrigin(resolution.Link.Line, resolution.Link.Column),
         };
 
         button.Click += (_, _) => LinkActivated?.Invoke(this, new LinkActivatedEventArgs(resolution, externalUrl));
+
+        // Which rule answered this link is the product, and until now it could only be
+        // read off a tooltip — not quoted into an issue, a commit message or a prompt back
+        // to whatever wrote the page.
+        if (CopyRequested is { } copy)
+        {
+            var explain = new MenuItem { Header = "Copy link explanation" };
+
+            explain.Click += (_, _) => copy(tooltip);
+
+            var target = new MenuItem { Header = "Copy link target" };
+
+            target.Click += (_, _) => copy(resolution.Target?.RelativePath ?? resolution.Link.RawTarget);
+
+            button.ContextFlyout = new MenuFlyout { Items = { explain, target } };
+        }
 
         if (externalUrl is null && resolution.Target is { IsMarkdown: true })
         {
@@ -1247,6 +1293,28 @@ public sealed class DocumentRenderer
             Foreground = _theme.Muted,
         },
     };
+
+    /// <summary>
+    /// A tag chip, which is a chip that goes somewhere: to the pages sharing the tag. Only
+    /// tags get this — an alias chip names this page and has nowhere to lead.
+    /// </summary>
+    private Control TagChip(string tag)
+    {
+        var button = new Button
+        {
+            Content = Chip($"#{tag}"),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0),
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+        };
+
+        ToolTip.SetTip(button, $"Show every page tagged {tag}");
+
+        button.Click += (_, _) => TagActivated?.Invoke(this, tag);
+
+        return button;
+    }
 
     private SelectableTextBlock Caption(string text) => new()
     {

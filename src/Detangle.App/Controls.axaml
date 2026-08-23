@@ -102,6 +102,27 @@
   </Style>
 
   <!--
+    A label that happens to be clickable: no chrome at all until the pointer is over it.
+    For places where the text already says what activating it does and a bordered button
+    beside it would be the same words twice.
+  -->
+  <Style Selector="Button.plain">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <Style Selector="Button.plain:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="Button.plain:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!--
     Icon buttons: square, borderless, the glyph does the talking. Buttons and toggles are
     listed separately because Avalonia selectors match the concrete type, and a ToggleButton
     is not a Button - matching only one of them left the graph and editor controls as two
