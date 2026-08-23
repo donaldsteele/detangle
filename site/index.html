@@ -390,6 +390,13 @@
             for this vault. It is numbered last because it was added last, and consulted
             first because it is not a guess.
           </p>
+          <p>
+            The decision lands in <code>.detangle-choices</code> beside your markdown — one
+            sorted line per link, with the reason as a comment — so it commits, it diffs,
+            and everyone who checks the wiki out resolves that link the way you decided.
+            <code>detangle-lint</code> and the static export read the same file. The Doctor
+            lists every decision made, with a revoke beside each one.
+          </p>
         </li>
         <li>
           <h3>Ignoring is keyed to the link, never the line.</h3>
@@ -505,10 +512,33 @@
       </figcaption>
     </figure>
 
+    <div class="window">
+      <div class="chrome">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="title">detangle-lint wiki/ --fail-on-regression</span>
+        <button class="copy" type="button" data-copy="delta">Copy</button>
+      </div>
+<pre class="log" id="delta"><span class="key">"delta"</span>: {
+  <span class="key">"links"</span>: { <span class="key">"broke"</span>: <span class="num">0</span>, <span class="key">"healed"</span>: <span class="num">2</span>, <span class="key">"degraded"</span>: <span class="num">5</span>, <span class="key">"improved"</span>: <span class="num">0</span> },
+  <span class="key">"regressed"</span>: <span class="num">true</span>,
+  <span class="key">"regressions"</span>: [
+    { <span class="key">"source"</span>: <span class="dst">"wiki/index.md"</span>, <span class="key">"target"</span>: <span class="src">"Getting Started"</span>,
+      <span class="key">"change"</span>: <span class="rule normalized">"degraded"</span>,
+      <span class="key">"was"</span>: <span class="rule exact">"exactStem"</span>, <span class="key">"now"</span>: <span class="rule normalized">"normalizedName"</span> } ] }</pre>
+    </div>
+
+    <p class="micro">
+      Mark once with <code>--mark</code>, commit <code>.detangle-baseline.json</code>, then
+      gate every regeneration on <code>--fail-on-regression</code>: exit 1 when a link broke
+      or fell, whatever the totals are. An already-broken wiki that did not get worse
+      passes, which is the whole point — <code>--fail-on error</code> fails on every run
+      once anything is broken, so it can never tell one run from another.
+    </p>
+
     <p class="micro">
       There is no automatic snapshot. The file watcher fires dozens of times during a
       generation run, so a guess at when the generator finished would diff against half a
-      corpus — which is worse than no diff. You press a button.
+      corpus — which is worse than no diff. You press a button, or you pass a flag.
     </p>
   </div>
 </section>
@@ -563,6 +593,14 @@
             A broken link is the only Error, so gating on the default would never notice
             the interesting findings. The flag exists because otherwise nobody would gate
             on it at all.
+          </p>
+        </li>
+        <li>
+          <h3><code>--emit-patch</code> plans the repair. It never applies one.</h3>
+          <p>
+            A unified diff you can read, review or pipe into <code>git apply</code>, with
+            the rung that resolved each link named above its hunk — so the patch says why,
+            not only what. The command still writes nothing to your wiki.
           </p>
         </li>
       </ul>
@@ -670,6 +708,7 @@
       <a href="docs/diagrams.html">Diagrams<span>Mermaid and DBML offline</span></a>
       <a href="docs/search.html">Search<span>The query syntax</span></a>
       <a href="docs/link-doctor.html">Link Doctor<span>Findings, triage and safe fixes</span></a>
+      <a href="docs/regeneration.html">Regeneration<span>Baselines, and gating on what got worse</span></a>
       <a href="docs/graph.html">Graph view<span>Reading the picture</span></a>
       <a href="docs/editing-and-export.html">Editing and export<span>Atomic saves, four export shapes</span></a>
       <a href="docs/keyboard.html">Keyboard<span>Every shortcut</span></a>

@@ -15,8 +15,18 @@ export all run in process.
 ## Does it change my files?
 
 Only when you tell it to: saving in the editor, applying a Link Doctor fix, creating a
-missing note, or normalizing links. Everything else is read-only. Its index lives in a
-`.detangle/` folder inside the vault and can be deleted at any time.
+missing note, or normalizing links. Everything else is read-only.
+
+The two commands that rewrite the whole vault — **Fix all safe** and **Normalize links in
+place** — ask first. Each shows how many links in how many files it would change, lists
+every file, and does nothing until you confirm; Cancel is the default. There is no undo
+afterwards, which is why the list comes first.
+
+Its index lives in a `.detangle/` folder inside the vault and can be deleted at any time.
+Two files sit outside it, at the vault root, because they are decisions rather than cache
+and are meant to be committed: `.detangle-choices` records which page an ambiguous link was
+decided to mean, and `.detangle-baseline.json` records the state later regenerations are
+measured against. Deleting either loses a decision; deleting `.detangle/` loses nothing.
 
 ## What does it not do?
 

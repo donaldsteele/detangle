@@ -30,10 +30,21 @@ so the installers and the in-app updater are written but unproven.
 - **A thirteen-step link resolver** with visible provenance — every link shows which
   rule resolved it, ambiguity opens a picker, nothing is silently dropped.
 - **Mermaid and DBML diagrams**, rendered offline with no runtime dependencies.
-- **Backlinks, unlinked mentions, graph view, full-text search.**
-- **Link Doctor** — every broken, ambiguous, orphaned and stale page in one list, with
-  one-click fixes.
+- **Backlinks, unlinked mentions, graph view, full-text search, find in page.**
+- **Link Doctor** — every broken, ambiguous, orphaned and stale page in one list. Fixes
+  show you every file they would rewrite before touching one, and there is no undo, so the
+  list comes first.
+- **Portable decisions.** The one resolution rung a person writes — which page an ambiguous
+  link means — lives in `.detangle-choices` beside your markdown. Commit it and the desktop
+  app, the CLI and the exported site all agree.
+- **A regeneration gate.** Mark a baseline, and `detangle-lint --fail-on-regression` fails a
+  pipeline only when a link broke *or fell down the chain* — not on the ones that were
+  already broken before the run.
 - **Offline by design.** No network calls, no telemetry, no account, no API keys.
+
+`detangle-lint` reports the same findings as JSON, and `--emit-patch` plans the repair as a
+unified diff — naming the rung that resolved each link above its hunk — without ever
+writing to the vault.
 
 ## Building
 
