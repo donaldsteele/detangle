@@ -40,12 +40,26 @@ public sealed class LinkLedger : Control
         AffectsMeasure<LinkLedger>(ResolutionsProperty);
     }
 
+    /// <summary>How tall the painted strip is. The hit target is larger.</summary>
+    private const double PaintHeight = 3;
+
     /// <summary>Creates a ledger.</summary>
     public LinkLedger()
     {
-        Height = 3;
+        // Ten pixels of target, three of paint. The strip is the one graphic idea in the
+        // centre pane and must not get heavier, but a 3px click target is one nobody hits
+        // and a 3px hover target is a tooltip nobody sees.
+        Height = 10;
         ClipToBounds = true;
+        Cursor = new Cursor(StandardCursorType.Hand);
     }
+
+    /// <summary>
+    /// Raised when a band of the strip is clicked, carrying the resolution class under the
+    /// pointer. The strip has always known which page's links are broken; this is what
+    /// makes it say so.
+    /// </summary>
+    public event EventHandler<ResolutionConfidence>? SegmentClicked;
 
     /// <summary>The resolutions to summarise. Null or empty draws nothing.</summary>
     public IReadOnlyList<LinkResolution>? Resolutions
@@ -65,6 +79,56 @@ public sealed class LinkLedger : Control
             return;
         }
 
+        // Painted against the bottom of the control, so growing the hit target upward did
+        // not move the line: it still sits directly under the tab strip.
+        double top = Bounds.Height - PaintHeight;
+
+        foreach ((int index, double x, double span) in Segments(counts, total))
+        {
+            if (Brush(Bands[index].Key) is { } brush)
+            {
+                context.FillRectangle(brush, new Rect(x, top, span, PaintHeight));
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+
+        if (BandAt(e.GetPosition(this).X) is { } band)
+        {
+            SegmentClicked?.Invoke(this, band);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Which resolution class is under a horizontal position, if any.</summary>
+    private ResolutionConfidence? BandAt(double position)
+    {
+        int[] counts = Count();
+        int total = counts.Sum();
+
+        if (total == 0)
+        {
+            return null;
+        }
+
+        foreach ((int index, double x, double span) in Segments(counts, total))
+        {
+            if (position >= x && position < x + span)
+            {
+                return Bands[index].Confidence;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Where each non-empty band sits along the strip.</summary>
+    private IEnumerable<(int Index, double X, double Span)> Segments(int[] counts, int total)
+    {
         double x = 0;
         double width = Bounds.Width;
 
@@ -82,10 +146,7 @@ public sealed class LinkLedger : Control
                 ? width - x
                 : Math.Round(width * counts[i] / total);
 
-            if (Brush(Bands[i].Key) is { } brush)
-            {
-                context.FillRectangle(brush, new Rect(x, 0, span, Bounds.Height));
-            }
+            yield return (i, x, span);
 
             x += span;
         }
@@ -104,13 +165,17 @@ public sealed class LinkLedger : Control
             return;
         }
 
+        string summary = string.Join(
+            " · ",
+            Bands.Select((band, i) => (band, count: counts[i]))
+                .Where(entry => entry.count > 0)
+                .Select(entry => $"{entry.count} {entry.band.Label}"));
+
         ToolTip.SetTip(
             this,
-            string.Join(
-                " · ",
-                Bands.Select((band, i) => (band, count: counts[i]))
-                    .Where(entry => entry.count > 0)
-                    .Select(entry => $"{entry.count} {entry.band.Label}")));
+            BandAt(e.GetPosition(this).X) is { } band
+                ? $"{summary}\nClick to list this page's {Bands.First(b => b.Confidence == band).Label} links"
+                : summary);
     }
 
     private int[] Count()

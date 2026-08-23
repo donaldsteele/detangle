@@ -268,6 +268,107 @@ public class ShellViewModelTests
         Assert.NotNull(shell.Mentions);
     }
 
+    [Fact]
+    public void SelectingATagListsEveryPageItNames()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+        TagNode tag = shell.Tags[0];
+
+        shell.SelectTag(tag);
+
+        // The tree's count is the promise the list has to keep.
+        Assert.Equal(tag.TotalCount, shell.TagDocuments.Count);
+        Assert.Equal(tag.FullTag, shell.SelectedTag);
+        Assert.Contains(tag.FullTag.ToUpperInvariant(), shell.TagSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ClearingTheTagSelectionEmptiesTheList()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.SelectTag(shell.Tags[0]);
+        shell.SelectTag(null);
+
+        Assert.Empty(shell.TagDocuments);
+        Assert.Empty(shell.SelectedTag);
+        Assert.Empty(shell.TagSummary);
+    }
+
+    [Fact]
+    public void ATagChipSelectsItsTagAndOpensTheRail()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.IsLeftPanelVisible = false;
+
+        Assert.True(shell.SelectTagNamed($"#{shell.Tags[0].FullTag}"));
+        Assert.True(shell.IsLeftPanelVisible);
+        Assert.NotEmpty(shell.TagDocuments);
+
+        Assert.False(shell.SelectTagNamed("no-such-tag"));
+    }
+
+    [Fact]
+    public void TheTagHeaderHandsTheSameQuestionToTheSearchBox()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.SelectTag(shell.Tags[0]);
+        shell.SearchSelectedTag();
+
+        Assert.Equal($"tag:{shell.Tags[0].FullTag}", shell.SearchQuery);
+    }
+
+    [Fact]
+    public void NarrowingTheDoctorToOnePageLeavesTheVaultWideFindingsAlone()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        int everything = shell.Findings.Count;
+        string page = shell.Findings[0].Document.RelativePath;
+
+        shell.FilterFindings(page);
+
+        // The tree narrows; the collection every other reader uses — the fix-all pass, the
+        // report — still describes the whole vault.
+        Assert.Equal(everything, shell.Findings.Count);
+        Assert.All(
+            shell.FindingGroups.SelectMany(g => g.Findings),
+            f => Assert.Equal(page, f.Document.RelativePath));
+
+        Assert.NotNull(shell.FindingFilterSummary);
+        Assert.Contains(page, shell.FindingFilterSummary!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheFilterChipDismissesBackToTheWholeVault()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.FilterFindings(shell.Findings[0].Document.RelativePath);
+        shell.FilterFindings(null);
+
+        Assert.Null(shell.FindingFilterSummary);
+        Assert.Null(shell.FindingPageFilter);
+        Assert.Equal(
+            shell.Findings.Count,
+            shell.FindingGroups.Sum(g => g.Findings.Count));
+    }
+
+    [Fact]
+    public void OpeningAnotherVaultForgetsAFilterAboutTheLastOne()
+    {
+        ShellViewModel shell = OpenVault("llm-wiki");
+
+        shell.FilterFindings("wiki/index.md");
+        shell.OpenVault(Path.Combine(FixtureRoot, "vaults", "obsidian"));
+
+        // A filter naming a page that is not in this vault would hide everything in it.
+        Assert.Null(shell.FindingPageFilter);
+        Assert.Null(shell.FindingFilterSummary);
+    }
+
     private static ShellViewModel OpenVault(string vaultName)
     {
         var shell = new ShellViewModel();

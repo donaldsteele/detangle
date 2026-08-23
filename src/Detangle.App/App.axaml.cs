@@ -22,6 +22,13 @@ public partial class DetangleApp : Application
     /// </summary>
     public static IUpdateService? UpdateService { get; set; }
 
+    /// <summary>
+    /// What the running head can do. Each head states its own before the framework
+    /// starts, the same way it states its update service; the desktop's is the default
+    /// because it is the head where everything here is true.
+    /// </summary>
+    public static HeadCapabilities Capabilities { get; set; } = HeadCapabilities.Desktop;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -82,7 +89,18 @@ public partial class DetangleApp : Application
         // preference its reader already expressed.
         bool dark = ThemeOverride ?? ActualThemeVariant == ThemeVariant.Dark;
 
-        var viewModel = new ShellViewModel { UpdateService = UpdateService, IsDarkTheme = dark };
+        var viewModel = new ShellViewModel
+        {
+            UpdateService = UpdateService,
+            IsDarkTheme = dark,
+            Capabilities = Capabilities,
+
+            // A tab has nowhere to keep a recent list, and a list of folders on a machine
+            // the browser cannot reach would be a list of dead links.
+            Settings = Capabilities.CanPersistAcrossSessions ? AppSettings.Open() : AppSettings.None,
+        };
+
+        viewModel.RefreshRecentVaults();
 
         if (ThemeOverride is null)
         {

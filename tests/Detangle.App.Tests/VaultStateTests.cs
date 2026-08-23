@@ -61,7 +61,10 @@ public class VaultStateTests : IDisposable
         ShellViewModel first = Open();
         first.Settle(Ambiguous(first), Document(first, "zebra/note.md"));
 
-        Assert.True(File.Exists(Path.Combine(_root, ".detangle", "state.json")));
+        // At the vault root, not in .detangle/, which is a cache the reader may delete. A
+        // settled ambiguity is the one rung of the chain a person writes, so it travels
+        // with the vault and the CLI and the exporter read the same file.
+        Assert.True(File.Exists(Path.Combine(_root, ChoiceStore.FileName)));
 
         // A second reader of the same vault gets the first one's decision.
         ShellViewModel second = Open();

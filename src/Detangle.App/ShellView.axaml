@@ -3,6 +3,7 @@
              xmlns:app="clr-namespace:Detangle.App"
              xmlns:vault="clr-namespace:Detangle.Core.Vault;assembly=Detangle.Core"
              xmlns:graph="clr-namespace:Detangle.Core.Graph;assembly=Detangle.Core"
+             xmlns:linking="clr-namespace:Detangle.Core.Linking;assembly=Detangle.Core"
              xmlns:search="clr-namespace:Detangle.Core.Search;assembly=Detangle.Core"
              xmlns:diagnostics="clr-namespace:Detangle.Core.Diagnostics;assembly=Detangle.Core"
              xmlns:model="clr-namespace:Detangle.Rendering.Model;assembly=Detangle.Rendering"
@@ -91,18 +92,63 @@
           </Grid>
         </Border>
 
-        <!-- Status bar. The counters are the product's own report card. -->
+        <!--
+          The status bar has three slots and only three: the message on the left, one
+          transient action in the middle, the vault's counters on the right. Anything that
+          wants to say something goes in the left slot and nowhere else, which is what
+          stops two unrelated things overwriting each other.
+        -->
         <Border DockPanel.Dock="Bottom" Padding="12,7" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource Line}" Background="{DynamicResource Panel}">
           <Grid ColumnDefinitions="*,Auto,Auto">
-            <TextBlock Grid.Column="0" Classes="identifier" Text="{Binding Status}"
-                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <!-- The message is the handle for the panel: one line here, all of it there. -->
+            <Button Grid.Column="0" Classes="plain" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left" Padding="0"
+                    Command="{Binding ToggleStatusLogCommand}"
+                    ToolTip.Tip="Show the last messages in full">
+              <TextBlock Classes="identifier" Text="{Binding Status}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Button>
+
             <Button Grid.Column="1" Content="{Binding UpdateSummary}" IsVisible="{Binding HasUpdate}"
                     Command="{Binding InstallUpdateCommand}" FontSize="11" Padding="9,3" Margin="12,0"
                     ToolTip.Tip="Downloads the update and restarts into it" />
             <TextBlock Grid.Column="2" Classes="identifier" Text="{Binding LinkSummary}"
                        VerticalAlignment="Center" Margin="12,0,0,0" />
           </Grid>
+        </Border>
+
+        <!--
+          The status panel, opening upward out of the bar. Docked, so it takes room from
+          the panes rather than covering them; monospace and selectable, so an exception
+          can be read and quoted; and it never takes focus, because it is something to look
+          at rather than something to use.
+        -->
+        <Border DockPanel.Dock="Bottom" Name="StatusPanel" IsVisible="{Binding IsStatusLogVisible}"
+                Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}"
+                BorderThickness="0,1,0,0" MaxHeight="320">
+          <DockPanel>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="12,8,10,4">
+              <TextBlock Grid.Column="0" Text="MESSAGES" Classes="label" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Name="CopyStatusLogButton" Content="Copy" FontSize="11"
+                      Padding="9,3" ToolTip.Tip="Copies every message below" />
+              <Button Grid.Column="2" Classes="icon" Margin="4,0,0,0"
+                      Command="{Binding ToggleStatusLogCommand}" ToolTip.Tip="Close">
+                <Path Data="{StaticResource IconClose}" Width="11" Height="11" />
+              </Button>
+            </Grid>
+
+            <ScrollViewer Name="StatusLogScroller" Padding="12,0,12,10">
+              <ItemsControl ItemsSource="{Binding StatusLog}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:String">
+                    <SelectableTextBlock Text="{Binding}" Classes="identifier"
+                                         TextWrapping="Wrap" Margin="0,2" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </DockPanel>
         </Border>
 
         <!--
@@ -157,6 +203,11 @@
                          Margin="12,14,12,6" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding SearchSummary}" Classes="label"
                            Margin="14,0,14,8" />
+                <TextBlock DockPanel.Dock="Top" Classes="secondary" TextWrapping="Wrap"
+                           Margin="14,4,14,0"
+                           Text="Words, or type:concept, tag:llm, path:wiki/, updated&gt;2026-06-01."
+                           IsVisible="{Binding SearchQuery, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+
                 <ListBox Name="SearchList" ItemsSource="{Binding SearchResults}">
                   <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="search:SearchHit">
@@ -194,7 +245,7 @@
                   -->
                   <Button Name="MarkBaselineButton" Content="Mark this state"
                           HorizontalAlignment="Stretch"
-                          ToolTip.Tip="Measures every later change against the vault as it stands now" />
+                          ToolTip.Tip="Writes .detangle-baseline.json at the vault root, and measures every later change against the vault as it stands now. detangle-lint --mark writes the same file." />
 
                   <TextBlock Text="{Binding ChangeSummary}" Classes="secondary" TextWrapping="Wrap"
                              IsVisible="{Binding ChangeSummary, Converter={x:Static ObjectConverters.IsNotNull}}" />
@@ -203,7 +254,78 @@
                             IsChecked="{Binding ShowOnlyChanged}"
                             IsVisible="{Binding ChangeSummary, Converter={x:Static ObjectConverters.IsNotNull}}"
                             ToolTip.Tip="Shows only findings in pages that changed since the baseline" />
+
+                  <!--
+                    Rung fourteen is the only one a person writes, and it used to be
+                    invisible from the moment it was made. Collapsed by default: this panel
+                    is the densest surface in the application, and a list nobody has asked
+                    for should not push the findings off the screen.
+                  -->
+                  <Expander Name="SettledExpander" Header="{Binding SettledSummary}"
+                            IsVisible="{Binding HasSettledChoices}"
+                            HorizontalAlignment="Stretch" Margin="0,2,0,0">
+                    <ItemsControl ItemsSource="{Binding SettledChoices}" MaxHeight="220">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="linking:SettledChoice">
+                          <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                            <StackPanel Grid.Column="0" Spacing="2">
+                              <TextBlock Text="{Binding RawTarget}" FontSize="12.5"
+                                         Foreground="{DynamicResource Text}"
+                                         TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding TargetPath, StringFormat='means {0}'}"
+                                         Classes="identifier" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="plain" Content="Revoke"
+                                    Click="OnRevokeChoiceClick" VerticalAlignment="Center"
+                                    ToolTip.Tip="Makes this link ambiguous again" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Expander>
                 </StackPanel>
+
+                <!--
+                  The confirm card for a vault-wide rewrite. Docked in the same region as
+                  the action card, not floated: this application has one overlay stratum
+                  and the palette is it. Cancel comes first and is the default, because the
+                  reader who clicked without reading meant to look, not to rewrite.
+                -->
+                <Border DockPanel.Dock="Bottom" Name="WriteConfirm"
+                        IsVisible="{Binding PendingWrite, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Background="{DynamicResource Raised}" BorderBrush="{DynamicResource Accent}"
+                        BorderThickness="0,2,0,0" Padding="12,10">
+                  <StackPanel Spacing="8" DataContext="{Binding PendingWrite}"
+                              x:DataType="app:PendingWrite">
+                    <TextBlock Text="{Binding Title}" FontSize="12.5"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="{Binding Summary}" Classes="secondary" TextWrapping="Wrap" />
+
+                    <!-- The whole set before any of it happens. Scrolled rather than
+                         truncated: "and 94 more" is the part a reader needs to check. -->
+                    <ScrollViewer MaxHeight="180">
+                      <ItemsControl ItemsSource="{Binding Files}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="app:PendingWriteFile">
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                              <TextBlock Grid.Column="0" Text="{Binding Path}" Classes="identifier"
+                                         TextTrimming="CharacterEllipsis" />
+                              <TextBlock Grid.Column="1" Text="{Binding Summary}" Classes="label"
+                                         Margin="8,0,0,0" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Name="CancelWriteButton" Content="Cancel" IsDefault="True"
+                              ToolTip.Tip="Nothing is written (Esc)" />
+                      <Button Name="ConfirmWriteButton" Content="Rewrite"
+                              ToolTip.Tip="Writes every file listed above" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
 
                 <!--
                   The action card. It is docked to the bottom rather than shown in a
@@ -246,6 +368,26 @@
                   what forces the available width back to the panel's, and stretching the
                   item content is what makes the row use it.
                 -->
+                <!--
+                  The chip the ledger raises. It is the only thing that says the tree is
+                  showing part of the vault rather than all of it, so it dismisses itself
+                  rather than needing the reader to find where the filter came from.
+                -->
+                <Button DockPanel.Dock="Top" Name="ClearFindingFilterButton" Classes="plain"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="14,4,14,8"
+                        IsVisible="{Binding FindingFilterSummary, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        ToolTip.Tip="Show the whole vault again">
+                  <TextBlock Text="{Binding FindingFilterSummary, StringFormat='{}{0}  ×'}"
+                             Classes="label" TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource Accent}" />
+                </Button>
+
+                <TextBlock DockPanel.Dock="Top" Classes="secondary" TextWrapping="Wrap"
+                           Margin="14,4,14,0"
+                           Text="Every link in this vault resolved, and nothing is orphaned or stale."
+                           IsVisible="{Binding HasCleanBillOfHealth}" />
+
                 <TreeView Name="FindingTree" ItemsSource="{Binding FindingGroups}"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                   <TreeView.DataTemplates>
@@ -276,17 +418,68 @@
               <TabItem.Header>
                 <Path Data="{StaticResource IconTags}" />
               </TabItem.Header>
-              <TreeView Name="TagTree" ItemsSource="{Binding Tags}" Margin="0,10,0,0">
-                <TreeView.ItemTemplate>
-                  <TreeDataTemplate x:DataType="graph:TagNode" ItemsSource="{Binding Children}">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Grid.Column="0" Text="{Binding Segment}" FontSize="12.5" />
-                      <TextBlock Grid.Column="1" Text="{Binding TotalCount}" Classes="label"
-                                 VerticalAlignment="Center" Margin="8,0,0,0" />
-                    </Grid>
-                  </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-              </TreeView>
+              <!--
+                The tree says a tag names fourteen pages; the list under it is those
+                fourteen. Split rather than replaced, because picking a tag is a step
+                towards a page and not away from the tag beside it.
+              -->
+              <Grid RowDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Row="0" Classes="secondary" TextWrapping="Wrap"
+                           Margin="14,14,14,0" VerticalAlignment="Top"
+                           Text="No page in this vault carries a tag, in its frontmatter or in its text."
+                           IsVisible="{Binding !HasTags}" />
+
+                <TreeView Grid.Row="0" Name="TagTree" ItemsSource="{Binding Tags}" Margin="0,10,0,0">
+                  <TreeView.ItemTemplate>
+                    <TreeDataTemplate x:DataType="graph:TagNode" ItemsSource="{Binding Children}">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Segment}" FontSize="12.5" />
+                        <TextBlock Grid.Column="1" Text="{Binding TotalCount}" Classes="label"
+                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                      </Grid>
+                    </TreeDataTemplate>
+                  </TreeView.ItemTemplate>
+                </TreeView>
+
+                <GridSplitter Grid.Row="1" ResizeDirection="Rows"
+                              IsVisible="{Binding TagSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                <!--
+                  Header and list share a row so the splitter has two things to resize.
+                  With nothing selected the row measures to nothing and the tree has the
+                  whole panel back.
+                -->
+                <DockPanel Grid.Row="2" Height="250" Background="{DynamicResource Panel}"
+                           IsVisible="{Binding TagSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+
+                  <!--
+                    The header is the affordance: the tag's own name hands "tag:llm" to the
+                    search box, which is the same question asked of the index rather than of
+                    the tree. A separate button for that would be a button that repeats a
+                    label already on screen.
+                  -->
+                  <Button DockPanel.Dock="Top" Name="TagSearchButton" Classes="plain"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                          Padding="14,10,14,6"
+                          ToolTip.Tip="Search the vault for this tag">
+                    <TextBlock Text="{Binding TagSummary}" Classes="label"
+                               TextTrimming="CharacterEllipsis" />
+                  </Button>
+
+                  <ListBox Name="TagDocumentList" ItemsSource="{Binding TagDocuments}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vault:VaultDocument">
+                        <StackPanel Spacing="3">
+                          <TextBlock Text="{Binding DisplayName}" FontSize="12.5"
+                                     Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding RelativePath}" Classes="identifier"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </DockPanel>
+              </Grid>
             </TabItem>
           </TabControl>
 
@@ -326,6 +519,42 @@
               -->
               <app:LinkLedger DockPanel.Dock="Top" Name="Ledger" />
 
+              <!--
+                Find in page. Below the ledger, not above it: the ledger reads as welded to
+                the tab strip, and a bar between them breaks the one graphic idea the centre
+                pane has. Hidden until Ctrl+F, and it takes no room while it is.
+              -->
+              <Border DockPanel.Dock="Top" Name="FindBar" IsVisible="False"
+                      Background="{DynamicResource Shell}" Padding="10,6"
+                      BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Line}">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
+                  <TextBox Grid.Column="0" Name="FindBox" PlaceholderText="Find in this page"
+                           FontSize="12.5" Padding="8,4" />
+
+                  <TextBlock Grid.Column="1" Name="FindSummary" Classes="identifier"
+                             VerticalAlignment="Center" Margin="10,0" MinWidth="72" />
+
+                  <Button Grid.Column="2" Name="FindPreviousButton" Classes="icon"
+                          ToolTip.Tip="Previous match (Shift+Enter)">
+                    <Path Data="{StaticResource IconBack}" />
+                  </Button>
+
+                  <Button Grid.Column="3" Name="FindNextButton" Classes="icon"
+                          ToolTip.Tip="Next match (Enter)">
+                    <Path Data="{StaticResource IconForward}" />
+                  </Button>
+
+                  <ToggleButton Grid.Column="4" Name="FindMatchCaseBox" Content="Aa"
+                                Margin="6,0,0,0" Padding="8,3" FontSize="11"
+                                ToolTip.Tip="Match case" />
+
+                  <Button Grid.Column="5" Name="FindCloseButton" Classes="icon" Margin="4,0,0,0"
+                          ToolTip.Tip="Close (Esc)">
+                    <Path Data="{StaticResource IconClose}" Width="11" Height="11" />
+                  </Button>
+                </Grid>
+              </Border>
+
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="{Binding IsEditing, Converter={x:Static app:EditorColumnConverter.Instance}}" />
@@ -364,11 +593,59 @@
                 <GridSplitter Grid.Column="1" ResizeDirection="Columns"
                               IsVisible="{Binding IsEditing}" />
 
-                <ScrollViewer Grid.Column="2" Name="DocumentScroller">
+                <ScrollViewer Grid.Column="2" Name="DocumentScroller"
+                              IsVisible="{Binding HasVault}">
                   <!-- A reading measure, centred. Prose set the full width of a maximised
                        window is not prose anybody finishes. -->
                   <ContentControl Name="DocumentHost" MaxWidth="760" HorizontalAlignment="Center"
                                   Margin="40,32,40,80" />
+                </ScrollViewer>
+
+                <!--
+                  First launch used to be three empty panes and one status line, with
+                  nothing on screen saying what this is. The shell's own voice: the
+                  wordmark, one sentence, and the folders you were reading last. No
+                  illustration, no feature grid, no second filled button — the toolbar
+                  already has the one that opens a vault.
+                -->
+                <ScrollViewer Grid.Column="2" Name="StartScreen" IsVisible="{Binding !HasVault}">
+                  <StackPanel MaxWidth="520" HorizontalAlignment="Center" Margin="40,90,40,60"
+                              Spacing="10">
+                    <TextBlock FontSize="34" FontWeight="Bold" LetterSpacing="-0.02"><Run Text="de" Foreground="{DynamicResource Text}" /><Run Text="tangle" Foreground="{DynamicResource Accent}" /></TextBlock>
+
+                    <TextBlock Classes="secondary" TextWrapping="Wrap" Margin="0,0,0,18"
+                               Text="Point it at a folder of markdown. Nothing is imported and nothing is converted — drop one here, or use Open vault above." />
+
+                    <TextBlock Classes="label" Text="RECENT" IsVisible="{Binding HasRecentVaults}" />
+
+                    <ItemsControl ItemsSource="{Binding RecentVaults}" IsVisible="{Binding HasRecentVaults}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="app:RecentVault">
+                          <Button Classes="plain" HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Left" Padding="0,7"
+                                  Click="OnRecentVaultClick" ToolTip.Tip="{Binding Path}">
+                            <StackPanel Spacing="3">
+                              <TextBlock Text="{Binding Name}" FontSize="13.5"
+                                         Foreground="{DynamicResource Text}"
+                                         TextTrimming="CharacterEllipsis" />
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding Flavor}" Classes="label" />
+
+                                <!-- A folder that has moved is marked, not dropped:
+                                     silently losing it leaves a reader wondering whether
+                                     they imagined opening it. -->
+                                <TextBlock Text="MISSING" Classes="label"
+                                           Foreground="{DynamicResource Faint}"
+                                           IsVisible="{Binding !Exists}" />
+                                <TextBlock Text="{Binding Path}" Classes="identifier"
+                                           TextTrimming="CharacterEllipsis" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
                 </ScrollViewer>
               </Grid>
             </DockPanel>
@@ -392,7 +669,15 @@
                       <Path Data="{StaticResource IconFit}" />
                     </Button>
                   </StackPanel>
-                  <TextBlock Text="{Binding GraphSummary}" Classes="label" />
+                  <Grid ColumnDefinitions="Auto,*">
+                    <TextBlock Grid.Column="0" Text="{Binding GraphSummary}" Classes="label" />
+
+                    <!-- The hover readout, beside the summary rather than in the status
+                         bar: a mouse crossing the picture must not erase the shell's own
+                         last message. -->
+                    <TextBlock Grid.Column="1" Text="{Binding GraphHover}" Classes="identifier"
+                               Margin="14,0,0,0" TextTrimming="CharacterEllipsis" />
+                  </Grid>
                 </StackPanel>
               </Border>
               <Panel Name="GraphHost" />
@@ -419,7 +704,12 @@
             </TabItem>
 
             <TabItem Header="Backlinks">
-              <ListBox Name="BacklinkList" ItemsSource="{Binding Backlinks}">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Classes="secondary" TextWrapping="Wrap"
+                           Margin="12,12,12,0"
+                           Text="Nothing in this vault links to this page yet."
+                           IsVisible="{Binding HasNoBacklinks}" />
+                <ListBox Name="BacklinkList" ItemsSource="{Binding Backlinks}">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="graph:Backlink">
                     <StackPanel Spacing="3">
@@ -430,11 +720,17 @@
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
-              </ListBox>
+                </ListBox>
+              </DockPanel>
             </TabItem>
 
             <TabItem Header="Mentions">
-              <ListBox Name="MentionList" ItemsSource="{Binding Mentions}">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Classes="secondary" TextWrapping="Wrap"
+                           Margin="12,12,12,0"
+                           Text="No page names this one without linking to it."
+                           IsVisible="{Binding HasNoMentions}" />
+                <ListBox Name="MentionList" ItemsSource="{Binding Mentions}">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="graph:UnlinkedMention">
                     <StackPanel Spacing="3">
@@ -445,12 +741,21 @@
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
-              </ListBox>
+                </ListBox>
+              </DockPanel>
             </TabItem>
           </TabControl>
 
         </Grid>
       </DockPanel>
+
+      <!--
+        Drop feedback: an accent hairline inset on the window edge. Not a scrim and not a
+        "drop here" panel — the palette is the only thing in this application allowed to
+        float over the shell.
+      -->
+      <Border Name="DropTarget" IsVisible="False" IsHitTestVisible="False" Margin="3"
+              BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="4" />
 
       <!-- Command palette, over everything. -->
       <Border Name="PaletteOverlay" IsVisible="{Binding IsPaletteOpen}" Background="#99000000">

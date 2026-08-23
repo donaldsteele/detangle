@@ -47,7 +47,20 @@ public partial class ShellView
         ExportSingleItem.Click += async (_, _) => await ExportSingleFile(currentPageOnly: false);
         ExportPageItem.Click += async (_, _) => await ExportSingleFile(currentPageOnly: true);
         ExportPdfItem.Click += async (_, _) => await ExportPdf();
-        NormalizeItem.Click += (_, _) => ViewModel?.NormalizeVault();
+        // Proposes rather than writes, and shows the Link Doctor where the confirm card
+        // lives: a rewrite of every file in the vault should not begin in a menu the
+        // reader can dismiss by clicking away from it.
+        NormalizeItem.Click += (_, _) =>
+        {
+            if (ViewModel is not { HasVault: true } viewModel)
+            {
+                return;
+            }
+
+            viewModel.IsLeftPanelVisible = true;
+            LeftRail.SelectedIndex = DoctorTabIndex;
+            viewModel.ProposeNormalizeVault();
+        };
     }
 
     private void OnEditorTextChanged(object? sender, EventArgs e)
