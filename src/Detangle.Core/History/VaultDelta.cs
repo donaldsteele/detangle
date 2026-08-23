@@ -116,6 +116,24 @@ public sealed record VaultDelta(
         }
     }
 
+    /// <summary>
+    /// True when something resolves worse than it did: a link that broke, or one that now
+    /// needs a later rung of the chain than it used to.
+    /// <para>
+    /// This is the question a gate in continuous integration has to ask. "Are there
+    /// errors" is the wrong one for a corpus a generator rewrites wholesale — an
+    /// already-broken wiki fails that test on every run, so nobody can tell the run that
+    /// made it worse from the twenty that did not.
+    /// </para>
+    /// </summary>
+    public bool HasRegression => Links.Any(
+        l => l.Kind is LinkChangeKind.Broke or LinkChangeKind.Degraded);
+
+    /// <summary>The links that got worse, worst first.</summary>
+    public IEnumerable<LinkChange> Regressions => Links
+        .Where(l => l.Kind is LinkChangeKind.Broke or LinkChangeKind.Degraded)
+        .OrderBy(l => l.Kind);
+
     /// <summary>Compares a baseline with the vault as it stands.</summary>
     /// <param name="previous">The marked baseline.</param>
     /// <param name="current">A record taken now.</param>

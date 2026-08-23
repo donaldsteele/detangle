@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Detangle.Core.Graph;
+using Detangle.Core.History;
 using Detangle.Core.Linking;
 
 namespace Detangle.Core.Diagnostics;
@@ -31,11 +32,17 @@ public static class FindingsReport
     /// <param name="findings">The findings to report.</param>
     /// <param name="rootPath">The vault root, echoed back so a report identifies itself.</param>
     /// <param name="indented">False for one line, which is what a pipe wants.</param>
+    /// <param name="delta">
+    /// What changed since a marked baseline, when one was asked for. Absent rather than
+    /// empty when no baseline was named: "nothing regressed" and "nothing was compared"
+    /// are different answers, and a gate reading this has to tell them apart.
+    /// </param>
     public static string Write(
         LinkGraph graph,
         IReadOnlyList<Finding> findings,
         string rootPath,
-        bool indented = true)
+        bool indented = true,
+        VaultDelta? delta = null)
     {
         using var stream = new MemoryStream();
 
@@ -60,6 +67,9 @@ public static class FindingsReport
 
             WriteCounts(writer, findings);
             WriteRules(writer, graph);
+
+            delta?.Write(writer);
+
             WriteFindings(writer, findings);
 
             writer.WriteEndObject();

@@ -1,3 +1,4 @@
+using Detangle.Core.Linking;
 using Detangle.Core.Search;
 using Detangle.Core.Vault;
 using Xunit;
@@ -113,6 +114,40 @@ public class SearchIndexTests
     }
 
     [Fact]
+    public void ATagFilterMeansTheTagAndItsChildrenAndNothingElse()
+    {
+        // The tag rail is a hierarchy and this is the same rule it browses by: "llm" is
+        // llm and llm/agents, but never llm-ops, which is a different tag that happens to
+        // start with the same letters. A rail counting two and a search finding three
+        // would replace one quiet lie with a subtler one.
+        (string Path, string Content)[] files =
+        [
+            ("own.md", "---\ntags: [llm]\n---\n\n# Own\n\nBody.\n"),
+            ("child.md", "---\ntags: [llm/agents]\n---\n\n# Child\n\nBody.\n"),
+            ("neighbour.md", "---\ntags: [llm-ops]\n---\n\n# Neighbour\n\nBody.\n"),
+        ];
+
+        VaultSnapshot vault = Vault(files);
+
+        using SearchIndex index = SearchIndex.Open(vault.RootPath, inMemory: true);
+
+        index.Rebuild(
+            vault,
+            document => files.First(f => f.Path == document.RelativePath).Content,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["child.md", "own.md"],
+            index.Search(SearchQuery.Parse("tag:llm"), vault)
+                .Select(h => h.Document.RelativePath)
+                .Order(StringComparer.Ordinal));
+
+        Assert.Equal(
+            "neighbour.md",
+            Assert.Single(index.Search(SearchQuery.Parse("tag:llm-ops"), vault)).Document.RelativePath);
+    }
+
+    [Fact]
     public void CombinesTextAndFieldFilters()
     {
         using SearchIndex index = BuildIndex("llm-wiki", out VaultSnapshot vault);
@@ -190,6 +225,14 @@ public class SearchIndexTests
 
         Assert.True(index.SectionCount >= vault.Documents.Count(d => d.IsMarkdown));
     }
+
+    private static VaultSnapshot Vault(params (string Path, string Content)[] files) =>
+        new()
+        {
+            RootPath = "/synthetic",
+            Profile = VaultProfile.For(VaultFlavor.Generic),
+            Index = VaultIndex.Build([.. files.Select(f => TestVault.CreateDocument(f.Path, f.Content))]),
+        };
 
     private static SearchIndex BuildIndex(string vaultName, out VaultSnapshot vault)
     {
