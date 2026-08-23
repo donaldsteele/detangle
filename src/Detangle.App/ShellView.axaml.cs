@@ -8,9 +8,9 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Detangle.Core.Graph;
 using Detangle.Core.Vault;
@@ -910,7 +910,7 @@ public partial class ShellView : UserControl
 
         // After the page is open and laid out, not before: the control the finding points
         // at does not exist until the render has happened.
-        global::Avalonia.Threading.Dispatcher.UIThread.Post(
+        Dispatcher.UIThread.Post(
             () =>
             {
                 if (finding.Line > 0 && !RevealLink(finding.Line))
